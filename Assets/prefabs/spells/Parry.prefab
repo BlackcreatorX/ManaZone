@@ -125,4 +125,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71fcec02c4bae814ea785490c393242c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ParryEffect
-  defaultWindow: 1

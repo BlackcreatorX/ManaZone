@@ -1,7 +1,7 @@
 
 using UnityEngine;
 
-public class CCProjectile : MonoBehaviour
+public class CCProjectile : MonoBehaviour, ILaunchableSpell
 {
     [Header("Projectile Settings")]
     [SerializeField] private float speed = 20f;
@@ -63,31 +63,12 @@ public class CCProjectile : MonoBehaviour
             return;
         }
 
-        MonoBehaviour[] components =
-            other.GetComponentsInParent<MonoBehaviour>();
-
-        foreach (MonoBehaviour component in components)
+        IStunnable target = other.GetComponentInParent<IStunnable>();
+        if (target != null)
         {
-            if (component == null)
-                continue;
-
-            if (component is IStunnable target)
-            {
-                hasHit = true;
-                target.Stun();
-
-                Debug.Log(
-                    $"¡{other.name} recibió el hechizo de control!"
-                );
-
-                Destroy(gameObject);
-                return;
-            }
+            hasHit = true;
+            target.Stun();
+            Destroy(gameObject);
         }
     }
-}
-
-public interface IStunnable
-{
-    void Stun();
 }

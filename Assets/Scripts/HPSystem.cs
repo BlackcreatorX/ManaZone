@@ -2,7 +2,7 @@
 using UnityEngine;
 using TMPro;
 
-public class HPSystem : MonoBehaviour
+public class HPSystem : MonoBehaviour, IDamageable
 {
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
@@ -34,8 +34,7 @@ public class HPSystem : MonoBehaviour
     private void Awake()
     {
         CurrentHealth = maxHealth;
-        healthText.text = $"Vida: {CurrentHealth}/{MaxHealth}";
-        healthSlider.value = CurrentHealth / MaxHealth;
+        RefreshHealthUI();
     }
 
     public void TakeDamage(float damage)
@@ -55,8 +54,7 @@ public class HPSystem : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        healthText.text = $"Vida: {CurrentHealth}/{MaxHealth}";
-        healthSlider.value = CurrentHealth / MaxHealth;
+        RefreshHealthUI();
 
     }
 
@@ -68,7 +66,14 @@ public class HPSystem : MonoBehaviour
         CurrentHealth += amount;
 
         Debug.Log($"{name} recuperó {amount} de vida. Vida: {CurrentHealth}");
-        healthText.text = $"Vida: {CurrentHealth}/{MaxHealth}";
-        healthSlider.value = CurrentHealth / MaxHealth;
+        RefreshHealthUI();
+    }
+
+    private void RefreshHealthUI()
+    {
+        if (healthText != null)
+            healthText.text = $"Vida: {CurrentHealth}/{MaxHealth}";
+        if (healthSlider != null && maxHealth > 0f)
+            healthSlider.value = CurrentHealth / MaxHealth;
     }
 }

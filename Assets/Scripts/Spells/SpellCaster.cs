@@ -1,39 +1,38 @@
-
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using TMPro;
 
 public class SpellCaster : MonoBehaviour
 {
     [Header("Input")]
     [SerializeField] private InputActionAsset inputActions;
+    [SerializeField] private string actionMapName = "Player";
+    [SerializeField] private string selectActionPrefix = "SelectSpell";
+    [SerializeField] private string castActionName = "CastSpell";
 
     [Header("References")]
     [SerializeField] private Transform castPoint;
-
-    [Header("Equipped Spells")]
-    [SerializeField] private SpellSlot offensiveSpell;
-    [SerializeField] private DefensiveSpellSlot defensiveSpell;
-    [SerializeField] private SpellSlot controlSpell;
-
-    [Header("Mana")]
     [SerializeField] private ManaSystem manaSystem;
 
-    [Header("UI")]
+    [Header("Loadout")]
+    [SerializeField] private SpellDefinition[] equippedSpells;
     [SerializeField] private TMP_Text spellSelectionText;
 
-    private InputAction select1;
-    private InputAction select2;
-    private InputAction select3;
+    private readonly List<InputAction> selectActions = new List<InputAction>();
+    private readonly Dictionary<SpellDefinition, float> cooldowns = new Dictionary<SpellDefinition, float>();
     private InputAction castAction;
-
-    private GameObject activeShield;
-    private bool isShieldActive;
-
-    private int selectedSpell = 1;
-    private readonly float[] cooldownTimers = new float[3];
+    private int selectedSpellIndex;
+    private SpellDefinition activePersistentDefinition;
+    private GameObject activePersistentEffect;
 
     private void Awake()
+    {
+        BindInputActions();
+        UpdateSelectionLabel();
+    }
+
+    private void BindInputActions()
     {
         if (inputActions == null)
         {
@@ -41,340 +40,154 @@ public class SpellCaster : MonoBehaviour
             return;
         }
 
-        InputActionMap map = inputActions.FindActionMap("Player");
-
+        InputActionMap map = inputActions.FindActionMap(actionMapName);
         if (map == null)
         {
-            Debug.LogError("No existe el Action Map 'Player'.", this);
+            Debug.LogError($"No existe el Action Map '{actionMapName}'.", this);
             return;
         }
 
-        select1 = map.FindAction("SelectSpell1");
-        select2 = map.FindAction("SelectSpell2");
-        select3 = map.FindAction("SelectSpell3");
-        castAction = map.FindAction("CastSpell");
+        foreach (InputAction action in map.actions)
+        {
+            if (action.name.StartsWith(selectActionPrefix, System.StringComparison.Ordinal))
+                selectActions.Add(action);
+        }
+        selectActions.Sort((left, right) => GetActionIndex(left).CompareTo(GetActionIndex(right)));
+
+        castAction = map.FindAction(castActionName);
+    }
+
+    private int GetActionIndex(InputAction action)
+    {
+        string suffix = action.name.Substring(selectActionPrefix.Length);
+        return int.TryParse(suffix, out int index) ? index : int.MaxValue;
     }
 
     private void OnEnable()
     {
-        select1?.Enable();
-        select2?.Enable();
-        select3?.Enable();
+        foreach (InputAction action in selectActions)
+            action.Enable();
         castAction?.Enable();
     }
 
     private void OnDisable()
     {
-        select1?.Disable();
-        select2?.Disable();
-        select3?.Disable();
+        foreach (InputAction action in selectActions)
+            action.Disable();
         castAction?.Disable();
     }
 
-   
-private void Update()
-{
-    for (int i = 0; i < cooldownTimers.Length; i++)
+    private void Update()
     {
-        cooldownTimers[i] =
-            Mathf.Max(0f, cooldownTimers[i] - Time.deltaTime);
+        float deltaTime = Time.deltaTime;
+        if (equippedSpells == null)
+            return;
+
+        foreach (SpellDefinition spell in equippedSpells)
+        {
+            if (spell != null && cooldowns.TryGetValue(spell, out float remaining) && remaining > 0f)
+                cooldowns[spell] = Mathf.Max(0f, remaining - deltaTime);
+        }
+
+        int availableSlots = Mathf.Min(selectActions.Count, equippedSpells.Length);
+        for (int i = 0; i < availableSlots; i++)
+        {
+            if (selectActions[i].WasPressedThisFrame())
+            {
+                SelectSpell(i);
+                break;
+            }
+        }
+
+        if (castAction != null && castAction.WasPressedThisFrame())
+            CastSelectedSpell();
     }
 
-    if (select1 != null && select1.WasPressedThisFrame())
-        SelectSpell(1);
-
-    if (select2 != null && select2.WasPressedThisFrame())
-        SelectSpell(2);
-
-    if (select3 != null && select3.WasPressedThisFrame())
-        SelectSpell(3);
-
-    if (castAction != null && castAction.WasPressedThisFrame())
-        CastSelectedSpell();
-
-    if (spellSelectionText != null)
-        spellSelectionText.text =
-            $"Hechizo seleccionado: {selectedSpell}";
-
-    UpdateShieldMana();
-}
-
-
-    private void SelectSpell(int spellNumber)
+    private void SelectSpell(int index)
     {
-        selectedSpell = spellNumber;
-        Debug.Log("Hechizo seleccionado: " + selectedSpell);
+        if (index < 0 || index >= equippedSpells.Length || equippedSpells[index] == null)
+            return;
+
+        selectedSpellIndex = index;
+        UpdateSelectionLabel();
+    }
+
+    private void UpdateSelectionLabel()
+    {
+        if (spellSelectionText == null)
+            return;
+
+        SpellDefinition selected = equippedSpells != null && selectedSpellIndex < equippedSpells.Length
+            ? equippedSpells[selectedSpellIndex]
+            : null;
+        spellSelectionText.text = selected != null
+            ? $"Hechizo: {selected.DisplayName}"
+            : "Sin hechizo equipado";
     }
 
     private void CastSelectedSpell()
     {
-        int index = selectedSpell - 1;
-
-        if (index < 0 || index >= cooldownTimers.Length)
+        if (equippedSpells == null || selectedSpellIndex < 0 || selectedSpellIndex >= equippedSpells.Length)
             return;
 
-        if (cooldownTimers[index] > 0f)
+        SpellDefinition spell = equippedSpells[selectedSpellIndex];
+        if (spell == null)
+            return;
+
+        if (spell.IsPersistent && activePersistentDefinition == spell && activePersistentEffect != null)
         {
-            Debug.Log("Hechizo en cooldown.");
+            Destroy(activePersistentEffect);
+            activePersistentEffect = null;
+            activePersistentDefinition = null;
             return;
         }
 
-        switch (selectedSpell)
+        if (cooldowns.TryGetValue(spell, out float remaining) && remaining > 0f)
+            return;
+
+        float manaCost = spell.IsPersistent ? 0f : spell.ManaCost;
+        if (manaSystem == null || !manaSystem.TrySpendMana(manaCost))
+            return;
+
+        SpellCastContext context = new SpellCastContext(this, transform, castPoint, manaSystem);
+        if (!spell.Cast(context))
         {
-            case 1:
-                if (offensiveSpell == null)
-                    return;
-
-                LaunchProjectile(
-                    offensiveSpell.prefab,
-                    offensiveSpell.cooldown,
-                    offensiveSpell.manaCost,
-                    index
-                );
-                break;
-
-            case 2:
-                if (defensiveSpell == null)
-                    return;
-
-                ActivateShield(index);
-                break;
-
-            case 3:
-                if (controlSpell == null)
-                    return;
-
-                LaunchProjectile(
-                    controlSpell.prefab,
-                    controlSpell.cooldown,
-                    controlSpell.manaCost,
-                    index
-                );
-                break;
-        }
-    }
-
-    
-private void LaunchProjectile(
-    GameObject prefab,
-    float cooldown,
-    float manaCost,
-    int index)
-{
-    if (prefab == null || castPoint == null)
-    {
-        Debug.LogWarning("Falta asignar el prefab o el Cast Point.");
-        return;
-    }
-
-    if (manaSystem == null)
-    {
-        Debug.LogError("Falta asignar ManaSystem.");
-        return;
-    }
-
-    if (!manaSystem.TrySpendMana(manaCost))
-    {
-        Debug.Log("No tienes suficiente maná.");
-        return;
-    }
-
-    GameObject projectile = Instantiate(
-        prefab,
-        castPoint.position,
-        castPoint.rotation
-    );
-
-    Vector3 direction = castPoint.forward;
-
-    // Comprobar si es un proyectil de control.
-    CCProjectile ccProjectile =
-        projectile.GetComponent<CCProjectile>();
-
-    if (ccProjectile != null)
-    {
-        ccProjectile.Launch(direction);
-    }
-    else
-    {
-        // Si no es CC, comprobar si es el proyectil normal.
-        SpellProjectile spellProjectile =
-            projectile.GetComponent<SpellProjectile>();
-
-        if (spellProjectile != null)
-        {
-            spellProjectile.Launch(direction);
-        }
-        else
-        {
-            Debug.LogError(
-                "El prefab no tiene CCProjectile ni SpellProjectile.",
-                projectile
-            );
-
-            Destroy(projectile);
             manaSystem.RestoreMana(manaCost);
             return;
         }
+
+        cooldowns[spell] = spell.Cooldown;
     }
 
-    cooldownTimers[index] = cooldown;
-}
-
-
-    private void ActivateShield(int index)
+    public GameObject CreatePersistentEffect(SpellDefinition definition, GameObject prefab)
     {
-        if (defensiveSpell.defensiveMode == DefensiveMode.Shield)
-            ActivateShieldMode(index);
-        else
-            ActivateParryMode(index);
+        if (definition == null || prefab == null)
+            return null;
+
+        if (activePersistentEffect != null)
+            Destroy(activePersistentEffect);
+
+        activePersistentDefinition = definition;
+        activePersistentEffect = InstantiateAttached(prefab);
+        return activePersistentEffect;
     }
 
-    private void ActivateShieldMode(int index)
+    public GameObject CreateTransientAttachedEffect(GameObject prefab)
     {
-        if (isShieldActive)
-        {
-            DeactivateShield();
-            return;
-        }
-
-        if (defensiveSpell.prefab == null || manaSystem == null)
-            return;
-
-        if (manaSystem.CurrentMana <= 0f)
-        {
-            Debug.Log("No tienes maná para activar el escudo.");
-            return;
-        }
-
-        activeShield = Instantiate(
-            defensiveSpell.prefab,
-            transform.position,
-            transform.rotation,
-            transform
-        );
-
-        activeShield.transform.localPosition = Vector3.up;
-        activeShield.transform.localRotation = Quaternion.identity;
-
-        ShieldEffect shieldEffect = activeShield.GetComponent<ShieldEffect>();
-        if (shieldEffect != null)
-        {
-            shieldEffect.Activate(
-                manaSystem,
-                defensiveSpell.manaRecovery
-            );
-        }
-        else
-        {
-            Debug.LogError("El prefab del escudo necesita ShieldEffect.", activeShield);
-        }
-
-        isShieldActive = true;
-        manaSystem.RegenerationEnabled = false;
-        cooldownTimers[index] = defensiveSpell.cooldown;
-
-        Debug.Log("Escudo activado.");
+        return prefab == null ? null : InstantiateAttached(prefab);
     }
 
-    private void DeactivateShield()
+    private GameObject InstantiateAttached(GameObject prefab)
     {
-        isShieldActive = false;
-
-        if (manaSystem != null)
-            manaSystem.RegenerationEnabled = true;
-
-        if (activeShield != null)
-            Destroy(activeShield);
-
-        activeShield = null;
-        Debug.Log("Escudo desactivado.");
+        GameObject instance = Instantiate(prefab, transform.position, transform.rotation, transform);
+        instance.transform.localPosition = Vector3.up;
+        instance.transform.localRotation = Quaternion.identity;
+        return instance;
     }
-
-    private void ActivateParryMode(int index)
-    {
-        if (defensiveSpell.prefab == null || manaSystem == null)
-            return;
-
-        if (!manaSystem.TrySpendMana(defensiveSpell.manaCost))
-        {
-            Debug.Log("No tienes suficiente maná para hacer parry.");
-            return;
-        }
-
-        GameObject parryObject = Instantiate(
-            defensiveSpell.prefab,
-            transform.position,
-            transform.rotation,
-            transform
-        );
-
-        parryObject.transform.localPosition = Vector3.up;
-        parryObject.transform.localRotation = Quaternion.identity;
-
-        ParryEffect parryEffect =
-            parryObject.GetComponent<ParryEffect>();
-
-        if (parryEffect == null)
-        {
-            Debug.LogError(
-                "El prefab de parry necesita ParryEffect."
-            );
-
-            Destroy(parryObject);
-            manaSystem.RestoreMana(defensiveSpell.manaCost);
-            return;
-        }
-
-        parryEffect.Activate(
-            defensiveSpell.parryWindow,
-            manaSystem,
-            defensiveSpell.manaRecovery
-        );
-        cooldownTimers[index] = defensiveSpell.cooldown;
-    }
-
-
-private void UpdateShieldMana()
-{
-    if (!isShieldActive)
-        return;
-
-    if (manaSystem == null)
-    {
-        Debug.LogError("No hay ManaSystem asignado.");
-        DeactivateShield();
-        return;
-    }
-
-    // Coste por segundo convertido al coste de este frame.
-    float manaCost =
-        defensiveSpell.manaCost * Time.deltaTime;
-
-    // Si no queda suficiente maná, desactivar el escudo.
-    if (manaSystem.CurrentMana <= 0f)
-    {
-        Debug.Log("¡Maná agotado! Escudo desactivado.");
-        DeactivateShield();
-        return;
-    }
-
-    // Si no puede pagar el coste, desactivar el escudo.
-    if (!manaSystem.TrySpendMana(manaCost))
-    {
-        Debug.Log("¡Maná insuficiente! Escudo desactivado.");
-        DeactivateShield();
-        return;
-    }
-}
-
 
     private void OnDestroy()
     {
-        if (manaSystem != null)
-            manaSystem.RegenerationEnabled = true;
-
-        if (activeShield != null)
-            Destroy(activeShield);
+        if (activePersistentEffect != null)
+            Destroy(activePersistentEffect);
     }
 }

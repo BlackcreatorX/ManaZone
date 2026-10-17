@@ -5,15 +5,28 @@ public class ShieldEffect : MonoBehaviour
 {
     private bool isActive;
     private ManaSystem manaSystem;
+    private float manaDrainPerSecond;
     private float manaRefundOnBlock;
 
     public bool IsActive => isActive;
 
-    public void Activate(ManaSystem manaSystem, float manaRefundOnBlock)
+    public void Activate(ManaSystem manaSystem, float manaDrainPerSecond, float manaRefundOnBlock)
     {
         this.manaSystem = manaSystem;
+        this.manaDrainPerSecond = manaDrainPerSecond;
         this.manaRefundOnBlock = manaRefundOnBlock;
+        if (this.manaSystem != null)
+            this.manaSystem.RegenerationEnabled = false;
         isActive = true;
+    }
+
+    private void Update()
+    {
+        if (!isActive || manaDrainPerSecond <= 0f)
+            return;
+
+        if (manaSystem == null || !manaSystem.TrySpendMana(manaDrainPerSecond * Time.deltaTime))
+            Deactivate();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -43,6 +56,14 @@ public class ShieldEffect : MonoBehaviour
     public void Deactivate()
     {
         isActive = false;
+        if (manaSystem != null)
+            manaSystem.RegenerationEnabled = true;
         Destroy(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (manaSystem != null)
+            manaSystem.RegenerationEnabled = true;
     }
 }

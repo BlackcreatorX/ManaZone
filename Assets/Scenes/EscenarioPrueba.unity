@@ -843,24 +843,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpellCaster
   inputActions: {fileID: -944628639613478452, guid: 7fc04a5933599ef44a2480d5820a2605, type: 3}
   castPoint: {fileID: 1992771527}
-  offensiveSpell:
-    spellName: Prueba1
-    prefab: {fileID: 5017330535958720123, guid: 1fdb5cfe1e559d14d90a19696e4b3b39, type: 3}
-    cooldown: 1
-    manaCost: 15
-  defensiveSpell:
-    spellName: shield basic
-    prefab: {fileID: 1657132354178111425, guid: 1a5c44512e5e4f044a829ef0284c749e, type: 3}
-    cooldown: 1
-    manaCost: 20
-    defensiveMode: 0
-    parryWindow: 1
-    manaRecovery: 10
-  controlSpell:
-    spellName: Prueba1StunProjectile
-    prefab: {fileID: 1643262983094957903, guid: 7aab3506794d584458b5ef5dd3c94cbe, type: 3}
-    cooldown: 4
-    manaCost: 20
+  actionMapName: Player
+  selectActionPrefix: SelectSpell
+  castActionName: CastSpell
+  equippedSpells:
+  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: 871eb080369c4a8d82c63d2976e8392b, type: 2}
+  - {fileID: 11400000, guid: 41d7d926a6e44b4ea1744caa99b15d1a, type: 2}
   manaSystem: {fileID: 511097182}
   spellSelectionText: {fileID: 1362759370}
 --- !u!114 &511097181
@@ -3126,7 +3115,6 @@ GameObject:
   - component: {fileID: 1620736993}
   - component: {fileID: 1620736992}
   - component: {fileID: 1620736996}
-  - component: {fileID: 1620736997}
   - component: {fileID: 1620736998}
   m_Layer: 0
   m_Name: Enemy
@@ -3245,18 +3233,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpellableTarget
   maxHealth: 100
   slowMultiplier: 0.4
---- !u!114 &1620736997
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1620736991}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 414ecfffe4dad0847a27bb2b1174b38e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::estuneableplacehodder
 --- !u!114 &1620736998
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -2,7 +2,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class SpellableTarget : MonoBehaviour
+public class SpellableTarget : MonoBehaviour, IDamageable, IStunnable, ISlowable
 {
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
@@ -22,13 +22,17 @@ public class SpellableTarget : MonoBehaviour
     private void Awake()
     {
         currentHealth = maxHealth;
-        NameText.text = name;
+        if (NameText != null)
+            NameText.text = name;
         if (healthBar != null)
             healthBar.value = currentHealth / maxHealth;
     }
 
     public void TakeDamage(float damage)
     {
+        if (damage <= 0f || currentHealth <= 0f)
+            return;
+
         currentHealth -= damage;
         Debug.Log($"{name} recibió {damage} de daño. Vida: {currentHealth}");
 
@@ -36,7 +40,8 @@ public class SpellableTarget : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        healthBar.value = currentHealth / maxHealth;
+        if (healthBar != null && maxHealth > 0f)
+            healthBar.value = currentHealth / maxHealth;
     }
 
     public void ApplySlow(float duration)
@@ -45,6 +50,11 @@ public class SpellableTarget : MonoBehaviour
             StopCoroutine(slowRoutine);
 
         slowRoutine = StartCoroutine(SlowRoutine(duration));
+    }
+
+    public void Stun()
+    {
+        Debug.Log($"{name} está aturdido.");
     }
 
     private IEnumerator SlowRoutine(float duration)

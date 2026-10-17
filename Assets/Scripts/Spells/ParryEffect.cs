@@ -3,22 +3,12 @@ using UnityEngine;
 
 public class ParryEffect : MonoBehaviour
 {
-    [Header("Parry Settings")]
-    [SerializeField] private float defaultWindow = 0.2f;
-
     private float remainingTime;
     private bool isActive;
     private bool hasResolved;
     private ManaSystem manaSystem;
     private float manaRecovery;
     private HPSystem protectedPlayer;
-
-    private IParryResponse response;
-
-    private void Awake()
-    {
-        response = GetComponent<IParryResponse>();
-    }
 
     public void Activate(float duration, ManaSystem manaSystem, float manaRecovery)
     {
@@ -110,8 +100,6 @@ public class ParryEffect : MonoBehaviour
             protectedPlayer.SetInvulnerable(false);
 
         Debug.Log("Resultado del parry: " + result);
-
-        response?.OnParryResult(result);
 
         Destroy(gameObject);
     }

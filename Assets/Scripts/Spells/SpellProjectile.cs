@@ -2,7 +2,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class SpellProjectile : MonoBehaviour
+public class SpellProjectile : MonoBehaviour, ILaunchableSpell
 {
     [Header("Projectile")]
     [SerializeField] private float speed = 20f;
@@ -57,20 +57,16 @@ public class SpellProjectile : MonoBehaviour
             return;
         }
 
-        SpellableTarget target =
-            other.GetComponentInParent<SpellableTarget>();
-        HPSystem health = other.GetComponentInParent<HPSystem>();
-
+        IDamageable target = other.GetComponentInParent<IDamageable>();
         if (target != null)
         {
             target.TakeDamage(damage);
 
             if (appliesSlow)
-                target.ApplySlow(slowDuration);
-        }
-        else if (health != null)
-        {
-            health.TakeDamage(damage);
+            {
+                ISlowable slowable = other.GetComponentInParent<ISlowable>();
+                slowable?.ApplySlow(slowDuration);
+            }
         }
 
         // El proyectil desaparece al impactar.
