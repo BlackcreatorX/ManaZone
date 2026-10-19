@@ -63,6 +63,11 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell
             return;
         }
 
+        // Offensive spells do not cancel one another on contact.
+        if (other.GetComponentInParent<SpellProjectile>() != null
+            || other.GetComponentInParent<CCProjectile>() != null)
+            return;
+
         IStunnable target = other.GetComponentInParent<IStunnable>();
         if (target != null)
         {

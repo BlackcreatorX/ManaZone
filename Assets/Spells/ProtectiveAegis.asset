@@ -21,4 +21,4 @@ MonoBehaviour:
   parryDisplayName: Parry
   parryWindow: 1
   manaDrainPerSecond: 20
-  manaRecovery: 10
+  manaRecovery: 0

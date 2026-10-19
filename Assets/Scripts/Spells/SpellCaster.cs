@@ -22,21 +22,31 @@ public class SpellCaster : MonoBehaviour
     private readonly List<InputAction> selectActions = new List<InputAction>();
     private readonly Dictionary<SpellDefinition, float> cooldowns = new Dictionary<SpellDefinition, float>();
     private InputAction castAction;
+    private TPSController playerMovement;
     private int selectedSpellIndex;
     private SpellDefinition activePersistentDefinition;
     private GameObject activePersistentEffect;
 
     private void Awake()
     {
+        if (manaSystem == null)
+            manaSystem = GetComponent<ManaSystem>();
+        playerMovement = GetComponent<TPSController>();
+
         BindInputActions();
         UpdateSelectionLabel();
+
+        if (manaSystem == null)
+            Debug.LogError("SpellCaster necesita un ManaSystem asignado o en el mismo objeto.", this);
+        if (castPoint == null)
+            Debug.LogError("SpellCaster necesita un Cast Point para generar proyectiles.", this);
     }
 
     private void BindInputActions()
     {
         if (inputActions == null)
         {
-            Debug.LogError("Falta asignar Input Actions Asset.", this);
+            // AI-controlled casters use the shared TryCastSpell API without owning player input.
             return;
         }
 
@@ -89,6 +99,10 @@ public class SpellCaster : MonoBehaviour
                 cooldowns[spell] = Mathf.Max(0f, remaining - deltaTime);
         }
 
+        // A stun blocks player input for casting while cooldowns continue to elapse.
+        if (playerMovement != null && playerMovement.IsStunned)
+            return;
+
         int availableSlots = Mathf.Min(selectActions.Count, equippedSpells.Length);
         for (int i = 0; i < availableSlots; i++)
         {
@@ -131,32 +145,59 @@ public class SpellCaster : MonoBehaviour
             return;
 
         SpellDefinition spell = equippedSpells[selectedSpellIndex];
-        if (spell == null)
-            return;
+        TryCastSpell(spell);
+    }
+
+    /// <summary>Shared casting entry point for players and AI. Input remains owned by this component.</summary>
+    public bool TryCastSpell(SpellDefinition spell)
+    {
+        if (spell == null || !IsEquipped(spell))
+            return false;
 
         if (spell.IsPersistent && activePersistentDefinition == spell && activePersistentEffect != null)
         {
             Destroy(activePersistentEffect);
             activePersistentEffect = null;
             activePersistentDefinition = null;
-            return;
+            return true;
         }
 
         if (cooldowns.TryGetValue(spell, out float remaining) && remaining > 0f)
-            return;
+            return false;
 
         float manaCost = spell.IsPersistent ? 0f : spell.ManaCost;
         if (manaSystem == null || !manaSystem.TrySpendMana(manaCost))
-            return;
+            return false;
 
         SpellCastContext context = new SpellCastContext(this, transform, castPoint, manaSystem);
         if (!spell.Cast(context))
         {
             manaSystem.RestoreMana(manaCost);
-            return;
+            return false;
         }
 
         cooldowns[spell] = spell.Cooldown;
+        return true;
+    }
+
+    public bool CanCastSpell(SpellDefinition spell)
+    {
+        if (spell == null || manaSystem == null || !IsEquipped(spell))
+            return false;
+        if (spell.IsPersistent && activePersistentDefinition == spell && activePersistentEffect != null)
+            return true;
+        return (!cooldowns.TryGetValue(spell, out float remaining) || remaining <= 0f)
+            && manaSystem.CurrentMana >= (spell.IsPersistent ? 0f : spell.ManaCost);
+    }
+
+    public float CurrentMana => manaSystem != null ? manaSystem.CurrentMana : 0f;
+
+    private bool IsEquipped(SpellDefinition spell)
+    {
+        if (equippedSpells == null) return false;
+        for (int i = 0; i < equippedSpells.Length; i++)
+            if (equippedSpells[i] == spell) return true;
+        return false;
     }
 
     public GameObject CreatePersistentEffect(SpellDefinition definition, GameObject prefab)

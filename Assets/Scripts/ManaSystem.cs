@@ -66,8 +66,10 @@ public class ManaSystem : MonoBehaviour
     private void NotifyManaChanged()
     {
         OnManaChanged?.Invoke(CurrentMana, MaxMana);
-        manaBar.value = CurrentMana / MaxMana;
-        manaText.text = CurrentMana.ToString("F0");
+        if (manaBar != null && MaxMana > 0f)
+            manaBar.value = CurrentMana / MaxMana;
+        if (manaText != null)
+            manaText.text = CurrentMana.ToString("F0");
 
     }
 }

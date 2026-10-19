@@ -57,6 +57,12 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell
             return;
         }
 
+        // Offensive projectiles pass through other spells. Shield and parry are
+        // resolved above as explicit defensive effects.
+        if (other.GetComponentInParent<SpellProjectile>() != null
+            || other.GetComponentInParent<CCProjectile>() != null)
+            return;
+
         IDamageable target = other.GetComponentInParent<IDamageable>();
         if (target != null)
         {
