@@ -18,16 +18,18 @@ public abstract class SpellDefinition : ScriptableObject
 
 public sealed class SpellCastContext
 {
-    public SpellCastContext(SpellCaster caster, Transform owner, Transform castPoint, ManaSystem mana)
+    public SpellCastContext(SpellCaster caster, Transform owner, Transform castPoint, ManaSystem mana, float charge01 = 1f)
     {
         Caster = caster;
         Owner = owner;
         CastPoint = castPoint;
         Mana = mana;
+        Charge01 = Mathf.Clamp01(charge01);
     }
 
     public SpellCaster Caster { get; }
     public Transform Owner { get; }
     public Transform CastPoint { get; }
     public ManaSystem Mana { get; }
+    public float Charge01 { get; }
 }

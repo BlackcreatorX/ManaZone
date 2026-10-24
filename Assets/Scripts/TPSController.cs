@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
-public class TPSController : MonoBehaviour, IStunnable
+public class TPSController : MonoBehaviour, ITimedStunnable
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
@@ -17,6 +17,7 @@ public class TPSController : MonoBehaviour, IStunnable
     private InputAction moveAction;
     private float verticalVelocity;
     private float stunRemaining;
+    private StunFlipEffect stunFlipEffect;
 
     public bool IsStunned => stunRemaining > 0f;
 
@@ -47,8 +48,24 @@ public class TPSController : MonoBehaviour, IStunnable
 
     public void Stun()
     {
-        stunRemaining = Mathf.Max(stunRemaining, stunDuration);
-        Debug.Log($"{name} está aturdido durante {stunDuration:F1} s.", this);
+        Stun(stunDuration);
+    }
+
+    public void Stun(float duration)
+    {
+        Stun(duration, true);
+    }
+
+    public void Stun(float duration, bool flipVisual)
+    {
+        stunRemaining = Mathf.Max(stunRemaining, duration);
+        if (flipVisual)
+        {
+            if (stunFlipEffect == null)
+                stunFlipEffect = GetComponent<StunFlipEffect>() ?? gameObject.AddComponent<StunFlipEffect>();
+            stunFlipEffect.Apply(stunRemaining);
+        }
+        Debug.Log($"{name} está aturdido durante {stunRemaining:F1} s.", this);
     }
 
     private void MovePlayer()

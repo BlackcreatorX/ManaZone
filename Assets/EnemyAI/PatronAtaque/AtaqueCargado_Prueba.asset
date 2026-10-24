@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6efaa99f8ce51ea419b0cae46b937679, type: 3}
   m_Name: AtaqueCargado_Prueba
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAIPattern
-  patternId: charged_bolt
+  patternId: charged_burst
   kind: 1
   actions:
-  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: 461ed28f55444d158ad82e332986bf3f, type: 2}
   minDistance: 5
   maxDistance: 24
   preparationTime: 1.25

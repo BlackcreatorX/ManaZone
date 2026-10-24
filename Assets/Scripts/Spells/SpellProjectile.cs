@@ -30,6 +30,11 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell
         Destroy(gameObject, lifetime);
     }
 
+    public void SetDamage(float value)
+    {
+        damage = Mathf.Max(0f, value);
+    }
+
     public void Reflect(Transform newOwner)
     {
         ignoredOwner = newOwner != null ? newOwner.root : null;

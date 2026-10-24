@@ -12,6 +12,13 @@ public interface IStunnable
     void Stun();
 }
 
+/// <summary>Stun capability that lets a spell choose its duration.</summary>
+public interface ITimedStunnable : IStunnable
+{
+    void Stun(float duration);
+    void Stun(float duration, bool flipVisual);
+}
+
 /// <summary>Optional capability for a spell that applies a movement slow.</summary>
 public interface ISlowable
 {

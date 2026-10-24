@@ -6,11 +6,24 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell
     [Header("Projectile Settings")]
     [SerializeField] private float speed = 20f;
     [SerializeField] private float lifeTime = 5f;
+    [SerializeField, Min(0f)] private float stunDuration = 1.2f;
+    [SerializeField] private bool flipTargetDuringStun = true;
 
     private Vector3 direction;
     private bool hasHit;
     private bool isLaunched;
     private Transform ignoredOwner;
+
+    public void SetStunDuration(float duration)
+    {
+        stunDuration = Mathf.Max(0f, duration);
+    }
+
+    public void SetStunEffect(float duration, bool flipVisual)
+    {
+        SetStunDuration(duration);
+        flipTargetDuringStun = flipVisual;
+    }
 
     public void Launch(Vector3 launchDirection)
     {
@@ -72,7 +85,10 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell
         if (target != null)
         {
             hasHit = true;
-            target.Stun();
+            if (target is ITimedStunnable timedTarget)
+                timedTarget.Stun(stunDuration, flipTargetDuringStun);
+            else
+                target.Stun();
             Destroy(gameObject);
         }
     }

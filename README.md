@@ -48,8 +48,13 @@ Los hechizos se definen con ScriptableObjects derivados de `SpellDefinition`. Ca
 | Hechizo | Categoría | Función |
 |---|---|---|
 | `OffensiveBolt` / Rayo arcano | Ofensivo | Crea un `SpellProjectile` que inflige daño. El asset actual cuesta 15 de maná y tiene 1 s de cooldown. |
-| `ProtectiveAegis` | Defensivo | Definición de hechizo defensivo para escudo o parry según su modo y referencias. |
-| `BindingBolt` / Vincula | Control | Crea un `CCProjectile`. Cuesta 20 de maná y tiene 4 s de cooldown. |
+| `ProtectiveAegis` | Defensivo | El asset está configurado como escudo: consume maná mientras permanece activo. Su modo y sus costes se configuran en el asset. `EnemyParry` es el asset de ejemplo configurado como parry. |
+| `BindingBolt` / Vincula | Control | Crea un `CCProjectile`, aturde durante 2,5 s y pone de cabeza el modelo del objetivo durante el stun. Cuesta 20 de maná y tiene 4 s de cooldown. La duración se configura en el asset del hechizo. |
+| `StunOnly` / Aturdimiento | Control | Aplica stun durante 1,5 s sin voltear el modelo. Cuesta 15 de maná y tiene 4 s de cooldown; duración, coste y cooldown configurables en su asset. |
+| `ChargedBurst` / Ráfaga cargada | Ofensivo cargado | Mantén el botón de lanzamiento para cargar y suéltalo para disparar de 3 a 8 proyectiles consecutivos. La carga completa tarda 1,5 s; consume hasta 25 de maná durante la carga y tiene 2 s de cooldown. La regeneración se pausa mientras cargas. |
+| `ChargedLance` / Lanza cargada | Ofensivo cargado | Dispara un solo proyectil al soltar. En 3 s consume hasta 45 de maná y escala su daño de 25 a 120; la regeneración se pausa mientras cargas. Tiene 2 s de cooldown. |
+
+Para usar `ChargedBurst` con el jugador, asígnalo a una ranura de `SpellCaster → Equipped Spells` (la escena de prueba tiene tres ranuras). La IA puede usarlo si también está equipado y se incluye en las acciones de un patrón. La IA ejecuta cualquier `ChargedSpellDefinition` con carga completa; `ChargedBurst` dispara así el máximo de proyectiles configurado. El enemigo de la escena ya tiene la ráfaga equipada y el patrón `AtaqueCargado_Prueba` la usa como ejemplo.
 
 Los prefabs de proyectil implementan `ILaunchableSpell`. Los proyectiles consultan las interfaces de combate en el objeto impactado: `IDamageable`, `IStunnable` o `ISlowable`. El sistema no duplica el daño, la vida ni el maná para la IA.
 
@@ -113,8 +118,8 @@ En `SpellCaster`, asigna `Cast Point`, `Mana System` y los hechizos de `Equipped
 | Estado | Responsabilidad |
 |---|---|
 | `Idle` | Espera la siguiente evaluación y mantiene movimiento de combate. |
-| `Approach` | Se acerca cuando está más lejos que la distancia preferida. |
-| `Reposition` | Se aleja si está demasiado cerca. |
+| `Approach` | Se acerca si está fuera del rango máximo de todos sus patrones. |
+| `Reposition` | Se aleja si está más cerca que el rango mínimo de todos sus patrones. |
 | `EvaluateCombat` | Revisa rango, recursos, cooldowns y patrones elegibles. |
 | `PrepareAttack` | Espera preparación más reacción antes de ejecutar la primera acción. |
 | `Attack` | Ejecuta una acción del patrón por turno. |
@@ -123,13 +128,22 @@ En `SpellCaster`, asigna `Cast Point`, `Mana System` y los hechizos de `Equipped
 | `Stunned` | Interrumpe el patrón y detiene el movimiento mientras dure el aturdimiento. |
 | `Dead` | Deja de tomar decisiones cuando la vida del enemigo llega a cero. |
 
-Primero, la IA intenta llegar a `Preferred Distance`, usando una tolerancia de una unidad. Luego elige un patrón. Mientras prepara, ataca o se recupera, se mueve lateralmente y corrige su distancia al jugador. Tras completar cierto número de patrones hace un impulso evasivo.
+La IA selecciona cualquier patrón cuyo propio rango incluya al jugador y puede atacar mientras orbita. Solo se acerca o se aleja cuando queda fuera de los rangos de todos sus patrones. Mientras prepara, ataca o se recupera, mantiene el movimiento lateral y las esquivas. Tras completar cierto número de patrones hace un impulso evasivo.
 
 ### Selección contextual y ponderada
 
 La selección ponderada solo ocurre después de filtrar las condiciones obligatorias. La IA rechaza un patrón si está fuera de rango, si contiene referencias vacías, si un hechizo no está equipado, si algún hechizo está en cooldown o no se puede pagar, o si el maná actual no puede cubrir la suma de costes del patrón.
 
-Los patrones de tipo `Counter` también requieren que un sensor llame a `ObservePlayerAttack()`. No existe aún un sensor que detecte automáticamente una acción de ataque del jugador.
+#### Respuesta defensiva configurable
+
+`EnemyCombatAI → Defensive Response Chance` decide si el enemigo responde a cada hechizo ofensivo que lanza el jugador: 0 desactiva la respuesta y la observación para contraataques; 1 siempre responde; valores intermedios dan una probabilidad por lanzamiento. La respuesta solo se intenta si el enemigo puede usar el hechizo, por ejemplo, si tiene suficiente maná y el hechizo no está en cooldown.
+
+`EnemyCombatAI → Defensive Response` selecciona la respuesta automática. Asigna un asset `DefensiveSpellDefinition` que también esté en `SpellCaster → Equipped Spells`, o déjalo vacío para que no lance una defensa automática. El modo se configura en el propio asset:
+
+- `Mode = Shield`: crea un escudo persistente que drena maná por segundo. Configura `Mana Drain Per Second` y `Mana Recovery` en el asset.
+- `Mode = Parry`: abre una ventana temporal para reflejar un proyectil. Configura `Parry Window`, el coste base del hechizo y la recuperación de maná al reflejar.
+
+Si el enemigo tiene un patrón `Counter` válido y la observación del ataque pasó la probabilidad, ese patrón se prioriza durante `Counter Observation Window`. Esta oportunidad también requiere asignar el patrón en `EnemyCombatAI → Patterns` y equipar todos sus hechizos. La escena de prueba usa `EnemyParry` con probabilidad 0,45: su ventana es 0,65 s, cuesta 8 de maná y recupera 8 al reflejar un proyectil; `Counter Observation Window` está en 1,75 s. Para permitir contraataques sin una respuesta defensiva automática, deja `Defensive Response` vacío y configura `Defensive Response Chance` por encima de 0.
 
 Para cada patrón válido se calcula un peso base:
 
@@ -171,7 +185,7 @@ Los cooldowns se aplican a cada hechizo aunque forme parte de una secuencia. Si 
 | Asset | Tipo | Acción | Distancia | Preparación | Pausa | Recuperación | Peso | Propósito |
 |---|---|---|---:|---:|---:|---:|---:|---|
 | `Hostigamiento_Prueba` | `Harassment` | `OffensiveBolt` | 0–18 | 0,15 s | 0,2 s | 0,75 s | 1,4 | Ataque rápido y recuperación breve. |
-| `AtaqueCargado_Prueba` | `Charged` | `OffensiveBolt` | 5–24 | 1,25 s | 0,2 s | 1,6 s | 1,1 | Prueba una preparación más larga y legible. |
+| `AtaqueCargado_Prueba` | `Charged` | `ChargedBurst` (8 proyectiles a carga completa) | 5–24 | 1,25 s | 0,2 s | 0,1 s | 1,1 | Prueba una preparación más larga y una ráfaga consecutiva. |
 | `ControlEspacio_Prueba` | `SpaceControl` | `BindingBolt` | 2–16 | 0,65 s | 0,2 s | 1,2 s | 0,9 | Prueba el proyectil de stun y control del jugador. |
 
 Los valores anteriores configuran ventanas y pesos de prueba; el hechizo conserva su propio coste y cooldown. El asset `PatronPrueba` de la escena también puede editarse desde el Inspector.
@@ -186,10 +200,9 @@ La personalidad contiene preferencias, tiempos y velocidades. Asignar otro perfi
 |---|---|
 | `Aggression` | Aumenta la prioridad relativa de hostigamiento y reduce la de contraataque. También acorta reacción y evaluación al dividir sus tiempos entre `max(0,5, Aggression)`, con mínimos de 0,15 s y 0,1 s. |
 | `Mana Spending` | Controla cuánto penaliza la selección el coste de maná. Alto favorece patrones costosos; bajo conserva recursos. Nunca permite gastar más maná del disponible. |
-| `Preferred Distance` | Distancia que el enemigo busca mantener. Si queda a más de una unidad por encima, se aproxima; si queda a más de una unidad por debajo, se reposiciona. |
 | `Reaction Time` | Tiempo base antes de volver a decidir y antes de atacar. Más tiempo hace al enemigo menos inmediato y más legible. |
-| `Selection Interval` | Frecuencia con que evalúa y actualiza su decisión durante el movimiento de aproximación. Menor intervalo reevalúa antes. |
-| `Movement Speed` | Velocidad de acercamiento y retroceso. |
+| `Selection Interval` | Frecuencia con que evalúa y actualiza su decisión mientras se mueve fuera de los rangos de ataque. Menor intervalo reevalúa antes. |
+| `Movement Speed` | Velocidad de acercamiento o retroceso hasta el rango de algún patrón. |
 | `Combat Strafe Speed` | Velocidad de movimiento lateral durante el combate. |
 | `Dodge Speed Multiplier` | Multiplica la velocidad lateral durante una esquiva. |
 | `Dodge Duration` | Duración del impulso de esquiva. |
@@ -213,7 +226,7 @@ Los valores son puntos de partida para balancear. Para acelerar una IA, aumenta 
 
 ### Movimiento, suelo y paredes
 
-El enemigo se mueve mediante `CharacterController`; no usa `NavMeshAgent`. Durante aproximación avanza hacia el jugador; en combate combina desplazamiento lateral con corrección de distancia. Mantiene su dirección de giro durante varios segundos para evitar pequeñas oscilaciones en el mismo lugar.
+El enemigo se mueve mediante `CharacterController`; no usa `NavMeshAgent`. Fuera de los rangos de sus patrones avanza o retrocede para entrar en uno. En combate orbita al jugador y esquiva, y mantiene su dirección de giro durante varios segundos para evitar pequeñas oscilaciones en el mismo lugar.
 
 Antes de cada paso, comprueba que el destino siga teniendo suelo de la layer `Suelo`. Si el paso directo se acerca a un borde, prueba direcciones próximas para desplazarse a lo largo del límite. Un raycast valida el suelo y la inclinación.
 
@@ -225,6 +238,9 @@ También proyecta una esfera frente a su cuerpo para mantener distancia de pared
 | `Ground Probe Distance` | Distancia máxima del raycast hacia abajo para confirmar que hay piso. |
 | `Obstacle Layers` | Capas con obstáculos; por defecto incluye todas excepto la capa de suelo. |
 | `Wall Clearance` | Distancia de seguridad del barrido antes de mover. Al aumentarla, empieza a desviar antes de llegar a una pared. |
+| `Defensive Response Chance` | Probabilidad de responder a cada hechizo ofensivo observado del jugador. En 0 desactiva tanto la defensa automática como la señal para patrones `Counter`; en 1 responde siempre. |
+| `Defensive Response` | Asset `DefensiveSpellDefinition` que intenta lanzar al responder. Vacío significa que no hay lanzamiento automático, aunque los patrones `Counter` pueden reaccionar. El asset debe estar equipado. |
+| `Counter Observation Window` | Segundos durante los que conserva la señal de un hechizo ofensivo aceptado por la probabilidad y puede activar patrones `Counter`. |
 
 El proyecto define la layer `Suelo` en `ProjectSettings/TagManager.asset`. `Suelo1` y `Suelo2` de `EscenarioPrueba` están asignados a ella. Asigna la misma layer a cualquier superficie adicional donde pueda caminar la IA. Las paredes necesitan colliders y deben estar incluidas en `Obstacle Layers`.
 
@@ -232,7 +248,7 @@ El proyecto define la layer `Suelo` en `ProjectSettings/TagManager.asset`. `Suel
 
 `CCProjectile` busca `IStunnable` en el collider impactado o sus padres. `TPSController` implementa la interfaz: al recibir el impacto, detiene el movimiento del jugador y `SpellCaster` bloquea su entrada de lanzamiento durante el stun. `EnemyCombatAI` implementa el mismo contrato para poder ser interrumpido por proyectiles de control.
 
-El stun del jugador se configura con `TPSController → Stun Duration` (1,5 s en la escena de prueba). El stun del enemigo se configura con `EnemyCombatAI → Stun Duration` (1,2 s por defecto). `SpellableTarget.Stun()` actualmente solo registra el evento; no congela por sí solo el movimiento de un objetivo que use únicamente ese componente.
+El stun del jugador se configura con `TPSController → Stun Duration` (1,5 s en la escena de prueba). El stun del enemigo se configura con `EnemyCombatAI → Stun Duration` (1,2 s por defecto). `SpellableTarget` registra el stun y voltea el modelo, pero no congela por sí solo el movimiento de un objetivo que use únicamente ese componente.
 
 Las colisiones entre proyectiles ofensivos no los cancelan: `SpellProjectile` y `CCProjectile` ignoran los otros proyectiles. Las defensas se resuelven antes de buscar daño o control: el escudo destruye el proyectil que intercepta y el parry lo refleja.
 
@@ -242,7 +258,6 @@ Las colisiones entre proyectiles ofensivos no los cancelan: `SpellProjectile` y 
 - `Preparation Time`, `Reaction Time` y `Recovery Time` permiten dejar ventanas de respuesta. La preparación es temporal; no tiene animación ni efecto visual conectado por defecto.
 - `Debug State` escribe en la consola las transiciones, patrón, acción, maná y motivo principal de selección.
 - `State`, `CurrentPattern`, `CurrentAction`, `SelectionReason` y `RecoveryRemaining` están expuestos como propiedades públicas para depuración por código o herramientas de Inspector.
-- Un Gizmo muestra la distancia preferida del enemigo al seleccionarlo.
 
 ## Arquitectura del proyecto
 
@@ -319,7 +334,7 @@ Los ScriptableObjects son assets de datos compartibles, no componentes de escena
 - [x] Aproximación, reposicionamiento, movimiento lateral, esquiva y comprobación física de suelo/pared.
 - [x] Stun del jugador mediante `TPSController` y del enemigo mediante `EnemyCombatAI`.
 - [x] Colisiones entre proyectiles ofensivos sin cancelación y resolución de Shield/Parry.
-- [ ] Sensor observable para activar contraataques automáticamente.
+- [x] Notificación de hechizos ofensivos del jugador para activar respuestas y patrones de contraataque.
 - [ ] Señales visuales o animaciones para preparación, defensa y stun.
 - [ ] Balance de patrones y movimiento en Play Mode.
 - [ ] Sistema de mejoras roguelike.
@@ -362,7 +377,6 @@ Entre las posibilidades de expansión se encuentran:
 
 ## Limitaciones conocidas
 
-- Los patrones `Counter` no se activan automáticamente hasta que un sensor confiable llame a `ObservePlayerAttack()`.
 - La preparación de ataque es una demora legible, pero todavía no está vinculada a animaciones o efectos visuales.
 - La navegación usa consultas físicas locales y maniobras de desvío, no navegación global. Arenas complejas pueden requerir NavMesh u otra solución.
 - `SpellableTarget.Stun()` solo registra el stun. Para detener un personaje, usa un componente que implemente el efecto, como `TPSController` o `EnemyCombatAI`.

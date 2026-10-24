@@ -2,16 +2,19 @@
 using UnityEngine;
 using System.Collections;
 
-public class SpellableTarget : MonoBehaviour, IDamageable, IStunnable, ISlowable
+public class SpellableTarget : MonoBehaviour, IDamageable, ITimedStunnable, ISlowable
 {
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
 
     [Header("Movement")]
     [SerializeField] private float slowMultiplier = 0.4f;
+    [SerializeField, Min(0f)] private float stunDuration = 1.2f;
 
     private float currentHealth;
     private Coroutine slowRoutine;
+    private float stunRemaining;
+    private StunFlipEffect stunFlipEffect;
 
     public float CurrentSpeedMultiplier { get; private set; } = 1f;
     [Header("UI")]
@@ -54,7 +57,29 @@ public class SpellableTarget : MonoBehaviour, IDamageable, IStunnable, ISlowable
 
     public void Stun()
     {
-        Debug.Log($"{name} está aturdido.");
+        Stun(stunDuration);
+    }
+
+    public void Stun(float duration)
+    {
+        Stun(duration, true);
+    }
+
+    public void Stun(float duration, bool flipVisual)
+    {
+        stunRemaining = Mathf.Max(stunRemaining, duration);
+        if (flipVisual)
+        {
+            if (stunFlipEffect == null)
+                stunFlipEffect = GetComponent<StunFlipEffect>() ?? gameObject.AddComponent<StunFlipEffect>();
+            stunFlipEffect.Apply(stunRemaining);
+        }
+        Debug.Log($"{name} está aturdido durante {stunRemaining:F1} s.");
+    }
+
+    private void Update()
+    {
+        stunRemaining = Mathf.Max(0f, stunRemaining - Time.deltaTime);
     }
 
     private IEnumerator SlowRoutine(float duration)

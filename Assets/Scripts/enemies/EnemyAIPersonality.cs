@@ -5,7 +5,6 @@ public sealed class EnemyAIPersonality : ScriptableObject
 {
     [SerializeField, Min(0.1f)] private float aggression = 1f;
     [SerializeField, Min(0.1f)] private float manaSpending = 1f;
-    [SerializeField, Min(0f)] private float preferredDistance = 8f;
     [SerializeField, Min(0f)] private float reactionTime = 0.8f;
     [SerializeField, Min(0f)] private float selectionInterval = 0.5f;
     [SerializeField, Min(0f)] private float movementSpeed = 3f;
@@ -21,7 +20,6 @@ public sealed class EnemyAIPersonality : ScriptableObject
 
     public float Aggression => aggression;
     public float ManaSpending => manaSpending;
-    public float PreferredDistance => preferredDistance;
     public float ReactionTime => reactionTime;
     public float SelectionInterval => selectionInterval;
     public float MovementSpeed => movementSpeed;

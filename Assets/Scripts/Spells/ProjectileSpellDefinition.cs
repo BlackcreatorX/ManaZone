@@ -4,6 +4,8 @@ using UnityEngine;
 public sealed class ProjectileSpellDefinition : SpellDefinition
 {
     [SerializeField] private GameObject projectilePrefab;
+    [SerializeField, Min(0f)] private float stunDuration = 1.2f;
+    [SerializeField] private bool flipTargetDuringStun = true;
 
     public override bool Cast(SpellCastContext context)
     {
@@ -22,6 +24,10 @@ public sealed class ProjectileSpellDefinition : SpellDefinition
             Destroy(projectile);
             return false;
         }
+
+        CCProjectile controlProjectile = projectile.GetComponent<CCProjectile>();
+        if (controlProjectile != null)
+            controlProjectile.SetStunEffect(stunDuration, flipTargetDuringStun);
 
         launchable.Launch(context.CastPoint.forward);
         return true;

@@ -17,6 +17,8 @@ public sealed class DefensiveSpellDefinition : SpellDefinition
     [SerializeField, Min(0f)] private float manaDrainPerSecond = 15f;
     [SerializeField, Min(0f)] private float manaRecovery = 10f;
 
+    public DefensiveMode Mode => mode;
+
     public override bool IsPersistent => mode == DefensiveMode.Shield;
 
     public override string DisplayName => mode == DefensiveMode.Shield ? BaseDisplayName : parryDisplayName;

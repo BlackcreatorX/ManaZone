@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: Prodigy
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAIPersonality
   aggression: 4
-  manaSpending: 1.35
-  preferredDistance: 7
+  manaSpending: 1.37
   reactionTime: 0.3
   selectionInterval: 0.2
   movementSpeed: 3.5

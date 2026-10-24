@@ -26,6 +26,9 @@ public class SpellCaster : MonoBehaviour
     private int selectedSpellIndex;
     private SpellDefinition activePersistentDefinition;
     private GameObject activePersistentEffect;
+    private ChargedSpellDefinition chargingSpell;
+    private float chargeStartedAt;
+    private bool restoreManaRegeneration;
 
     private void Awake()
     {
@@ -82,6 +85,7 @@ public class SpellCaster : MonoBehaviour
 
     private void OnDisable()
     {
+        CancelCharge();
         foreach (InputAction action in selectActions)
             action.Disable();
         castAction?.Disable();
@@ -101,7 +105,10 @@ public class SpellCaster : MonoBehaviour
 
         // A stun blocks player input for casting while cooldowns continue to elapse.
         if (playerMovement != null && playerMovement.IsStunned)
+        {
+            CancelCharge();
             return;
+        }
 
         int availableSlots = Mathf.Min(selectActions.Count, equippedSpells.Length);
         for (int i = 0; i < availableSlots; i++)
@@ -113,8 +120,15 @@ public class SpellCaster : MonoBehaviour
             }
         }
 
-        if (castAction != null && castAction.WasPressedThisFrame())
-            CastSelectedSpell();
+        if (castAction != null)
+        {
+            if (castAction.WasPressedThisFrame())
+                BeginOrCastSelectedSpell();
+            if (chargingSpell != null && castAction.WasReleasedThisFrame())
+                ReleaseChargedSpell();
+        }
+
+        DrainChargeMana(deltaTime);
     }
 
     private void SelectSpell(int index)
@@ -148,8 +162,77 @@ public class SpellCaster : MonoBehaviour
         TryCastSpell(spell);
     }
 
+    private void BeginOrCastSelectedSpell()
+    {
+        if (equippedSpells == null || selectedSpellIndex < 0 || selectedSpellIndex >= equippedSpells.Length)
+            return;
+
+        SpellDefinition spell = equippedSpells[selectedSpellIndex];
+        if (spell is ChargedSpellDefinition chargedSpell)
+        {
+            if (CanCastSpell(chargedSpell))
+            {
+                chargingSpell = chargedSpell;
+                chargeStartedAt = Time.time;
+                restoreManaRegeneration = manaSystem.RegenerationEnabled;
+                manaSystem.RegenerationEnabled = false;
+            }
+            return;
+        }
+
+        CastSelectedSpell();
+    }
+
+    private void ReleaseChargedSpell()
+    {
+        ChargedSpellDefinition spell = chargingSpell;
+        chargingSpell = null;
+        manaSystem.RegenerationEnabled = restoreManaRegeneration;
+        float charge01 = Mathf.Clamp01((Time.time - chargeStartedAt) / spell.ChargeDuration);
+        TryCastSpellInternal(spell, charge01, true);
+    }
+
+    private void DrainChargeMana(float deltaTime)
+    {
+        if (chargingSpell == null || deltaTime <= 0f)
+            return;
+
+        float elapsed = Mathf.Min(deltaTime, Mathf.Max(0f, chargingSpell.ChargeDuration - (Time.time - chargeStartedAt)));
+        float drain = chargingSpell.ManaDrainPerSecond * elapsed;
+        if (elapsed > 0f)
+        {
+            float amountToSpend = Mathf.Min(drain, manaSystem.CurrentMana);
+            if (amountToSpend > 0f)
+                manaSystem.TrySpendMana(amountToSpend);
+
+            if (amountToSpend + 0.0001f < drain)
+            {
+                ReleaseChargedSpell();
+                return;
+            }
+        }
+
+        if (Time.time - chargeStartedAt >= chargingSpell.ChargeDuration)
+            ReleaseChargedSpell();
+    }
+
+    private void CancelCharge()
+    {
+        if (chargingSpell == null)
+            return;
+
+        chargingSpell = null;
+        if (manaSystem != null)
+            manaSystem.RegenerationEnabled = restoreManaRegeneration;
+    }
+
     /// <summary>Shared casting entry point for players and AI. Input remains owned by this component.</summary>
-    public bool TryCastSpell(SpellDefinition spell)
+    public bool TryCastSpell(SpellDefinition spell, float charge01 = 1f)
+    {
+        return TryCastSpellInternal(spell, charge01, false);
+    }
+
+    private bool TryCastSpellInternal(SpellDefinition spell, float charge01, bool chargeManaAlreadyPaid)
     {
         if (spell == null || !IsEquipped(spell))
             return false;
@@ -165,16 +248,19 @@ public class SpellCaster : MonoBehaviour
         if (cooldowns.TryGetValue(spell, out float remaining) && remaining > 0f)
             return false;
 
-        float manaCost = spell.IsPersistent ? 0f : spell.ManaCost;
+        float manaCost = spell.IsPersistent || (chargeManaAlreadyPaid && spell is ChargedSpellDefinition) ? 0f : spell.ManaCost;
         if (manaSystem == null || !manaSystem.TrySpendMana(manaCost))
             return false;
 
-        SpellCastContext context = new SpellCastContext(this, transform, castPoint, manaSystem);
+        SpellCastContext context = new SpellCastContext(this, transform, castPoint, manaSystem, charge01);
         if (!spell.Cast(context))
         {
             manaSystem.RestoreMana(manaCost);
             return false;
         }
+
+        if (playerMovement != null && !(spell is DefensiveSpellDefinition))
+            EnemyCombatAI.NotifyPlayerSpellCast(transform);
 
         cooldowns[spell] = spell.Cooldown;
         return true;
@@ -186,11 +272,18 @@ public class SpellCaster : MonoBehaviour
             return false;
         if (spell.IsPersistent && activePersistentDefinition == spell && activePersistentEffect != null)
             return true;
-        return (!cooldowns.TryGetValue(spell, out float remaining) || remaining <= 0f)
-            && manaSystem.CurrentMana >= (spell.IsPersistent ? 0f : spell.ManaCost);
+        bool ready = !cooldowns.TryGetValue(spell, out float remaining) || remaining <= 0f;
+        if (spell is ChargedSpellDefinition)
+            return ready && manaSystem.CurrentMana > 0f;
+        return ready && manaSystem.CurrentMana >= (spell.IsPersistent ? 0f : spell.ManaCost);
     }
 
     public float CurrentMana => manaSystem != null ? manaSystem.CurrentMana : 0f;
+
+    public bool IsPersistentActive(SpellDefinition spell)
+    {
+        return spell != null && activePersistentDefinition == spell && activePersistentEffect != null;
+    }
 
     private bool IsEquipped(SpellDefinition spell)
     {
@@ -228,7 +321,35 @@ public class SpellCaster : MonoBehaviour
 
     private void OnDestroy()
     {
+        CancelCharge();
         if (activePersistentEffect != null)
             Destroy(activePersistentEffect);
+    }
+
+    public bool StartChargedBurst(GameObject projectilePrefab, int count, float interval)
+    {
+        if (projectilePrefab == null || castPoint == null || count <= 0)
+            return false;
+        StartCoroutine(FireChargedBurst(projectilePrefab, count, interval));
+        return true;
+    }
+
+    private System.Collections.IEnumerator FireChargedBurst(GameObject projectilePrefab, int count, float interval)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (castPoint == null)
+                yield break;
+
+            GameObject projectile = Instantiate(projectilePrefab, castPoint.position, castPoint.rotation);
+            ILaunchableSpell launchable = projectile.GetComponent<ILaunchableSpell>();
+            if (launchable != null)
+                launchable.Launch(castPoint.forward);
+            else
+                Destroy(projectile);
+
+            if (i + 1 < count)
+                yield return new WaitForSeconds(interval);
+        }
     }
 }

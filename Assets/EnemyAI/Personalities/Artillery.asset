@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAIPersonality
   aggression: 0.85
   manaSpending: 0.9
-  preferredDistance: 13
   reactionTime: 1.1
   selectionInterval: 0.7
   movementSpeed: 2.5

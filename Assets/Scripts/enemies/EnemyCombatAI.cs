@@ -4,7 +4,7 @@ public enum EnemyAIState { Idle, Approach, Reposition, EvaluateCombat, PrepareAt
 
 /// <summary>Shared arena-combat brain. Spell execution and resource accounting stay in SpellCaster/ManaSystem.</summary>
 [RequireComponent(typeof(CharacterController))]
-public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
+public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
 {
     [Header("Setup")]
     [SerializeField] private Transform player;
@@ -20,6 +20,9 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
     [SerializeField, Min(0f)] private float wallClearance = 1.2f;
     [Header("Fairness and movement")]
     [SerializeField, Min(0f)] private float stunDuration = 1.2f;
+    [SerializeField, Range(0f, 1f)] private float defensiveResponseChance = 0.45f;
+    [SerializeField] private DefensiveSpellDefinition defensiveResponse;
+    [SerializeField, Min(0.1f)] private float counterObservationWindow = 1.75f;
     [SerializeField, Min(0f)] private float attackAccuracy = 0.9f;
     [SerializeField] private bool debugState;
 
@@ -32,8 +35,10 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
     private int completedPatternCount;
     private int strafeDirection = 1;
     private bool observedPlayerAttack;
+    private float counterObservationRemaining;
     private bool continuePatternAfterPause;
     private string selectionReason = "Waiting";
+    private StunFlipEffect stunFlipEffect;
 
     public EnemyAIState State => state;
     public string CurrentPattern => selectedPattern != null ? selectedPattern.name : "None";
@@ -62,7 +67,11 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
             if (found != null) player = found.transform;
         }
         state = EnemyAIState.Idle;
-        strafeDirectionTimer = personality != null ? personality.StrafeDirectionInterval : 3.5f;
+        // Avoid every enemy opening its combat movement with the same rightward strafe.
+        strafeDirection = Random.value < 0.5f ? -1 : 1;
+        strafeDirectionTimer = personality != null
+            ? personality.StrafeDirectionInterval * Random.Range(0.85f, 1.25f)
+            : 3.5f;
         if (spellCaster == null || personality == null || patterns == null || patterns.Length == 0)
             Debug.LogWarning("EnemyCombatAI requiere SpellCaster, personalidad y al menos un patrón asignados.", this);
     }
@@ -81,6 +90,12 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
         if (player == null || personality == null || spellCaster == null) { SetState(EnemyAIState.Idle); return; }
 
         decisionTimer -= Time.deltaTime;
+        if (observedPlayerAttack)
+        {
+            counterObservationRemaining -= Time.deltaTime;
+            if (counterObservationRemaining <= 0f)
+                observedPlayerAttack = false;
+        }
         if (state == EnemyAIState.Idle || state == EnemyAIState.Approach || state == EnemyAIState.Reposition)
             FacePlayer();
 
@@ -91,7 +106,7 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
                 break;
             case EnemyAIState.Approach:
             case EnemyAIState.Reposition:
-                MoveToRange();
+                MoveToAttackRange();
                 if (decisionTimer <= 0f) { decisionTimer = EffectiveSelectionInterval; SetState(EnemyAIState.EvaluateCombat); }
                 break;
             case EnemyAIState.EvaluateCombat:
@@ -134,13 +149,69 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
             MoveDuringCombat();
     }
 
-    /// <summary>Call only when a visible/observable player attack is detected by a future combat sensor.</summary>
-    public void ObservePlayerAttack() { observedPlayerAttack = true; }
+    public static void NotifyPlayerSpellCast(Transform attacker)
+    {
+        if (attacker == null)
+            return;
+
+        EnemyCombatAI[] enemies = FindObjectsOfType<EnemyCombatAI>();
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            EnemyCombatAI enemy = enemies[i];
+            if (enemy.player != null && enemy.player.root == attacker.root)
+                enemy.ObservePlayerAttack();
+        }
+    }
+
+    public void ObservePlayerAttack()
+    {
+        if (state == EnemyAIState.Stunned || state == EnemyAIState.Dead)
+            return;
+
+        if (defensiveResponseChance <= 0f
+            || (defensiveResponseChance < 1f && Random.value >= defensiveResponseChance))
+            return;
+
+        if (defensiveResponse != null && spellCaster != null
+            && (spellCaster.IsPersistentActive(defensiveResponse)
+                || (spellCaster.CanCastSpell(defensiveResponse) && spellCaster.TryCastSpell(defensiveResponse))))
+        {
+            FacePlayer();
+            return;
+        }
+
+        observedPlayerAttack = true;
+        counterObservationRemaining = Mathf.Max(0.1f, counterObservationWindow);
+        if (state == EnemyAIState.Idle || state == EnemyAIState.Recover
+            || state == EnemyAIState.EvaluateCombat || state == EnemyAIState.Approach
+            || state == EnemyAIState.Reposition || state == EnemyAIState.PrepareAttack)
+        {
+            selectedPattern = null;
+            decisionTimer = 0f;
+            SetState(EnemyAIState.EvaluateCombat);
+        }
+    }
 
     public void Stun()
     {
+        Stun(stunDuration);
+    }
+
+    public void Stun(float duration)
+    {
+        Stun(duration, true);
+    }
+
+    public void Stun(float duration, bool flipVisual)
+    {
         if (state == EnemyAIState.Dead) return;
-        stunTimer = Mathf.Max(stunTimer, stunDuration);
+        stunTimer = Mathf.Max(stunTimer, duration);
+        if (flipVisual)
+        {
+            if (stunFlipEffect == null)
+                stunFlipEffect = GetComponent<StunFlipEffect>() ?? gameObject.AddComponent<StunFlipEffect>();
+            stunFlipEffect.Apply(stunTimer);
+        }
         selectedPattern = null;
         SetState(EnemyAIState.Stunned);
     }
@@ -148,30 +219,11 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
     private void Evaluate()
     {
         float distance = Vector3.Distance(transform.position, player.position);
-        float preferredDistance = personality.PreferredDistance;
-
-        // First establish the personality's preferred spacing. Otherwise a long-range
-        // pattern can be valid immediately and the enemy will never reposition.
-        if (distance > preferredDistance + 1f)
-        {
-            selectedPattern = null;
-            decisionTimer = EffectiveSelectionInterval;
-            selectionReason = "Moving into preferred combat range";
-            SetState(EnemyAIState.Approach);
-            return;
-        }
-        if (distance < preferredDistance - 1f)
-        {
-            selectedPattern = null;
-            decisionTimer = EffectiveSelectionInterval;
-            selectionReason = "Repositioning to preferred combat range";
-            SetState(EnemyAIState.Reposition);
-            return;
-        }
-
         if (patterns == null) { SetState(EnemyAIState.Idle); return; }
         EnemyAIPattern best = null;
+        EnemyAIPattern bestCounter = null;
         float total = 0f;
+        float counterTotal = 0f;
         for (int i = 0; i < patterns.Length; i++)
         {
             EnemyAIPattern p = patterns[i];
@@ -195,26 +247,55 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
             if (playerHealth != null && playerHealth.MaxHealth > 0f)
                 weight *= 1f + p.LowPlayerHealthBonus * (1f - playerHealth.CurrentHealth / playerHealth.MaxHealth);
             if (weight <= 0f) continue;
-            total += weight;
-            if (Random.value * total < weight) best = p;
+            if (p.Kind == EnemyPatternKind.Counter)
+            {
+                counterTotal += weight;
+                if (Random.value * counterTotal < weight) bestCounter = p;
+            }
+            else
+            {
+                total += weight;
+                if (Random.value * total < weight) best = p;
+            }
+        }
+        if (observedPlayerAttack && bestCounter != null)
+        {
+            best = bestCounter;
+            total += counterTotal;
         }
         if (total <= 0f)
         {
             selectedPattern = null;
-            float preferred = personality.PreferredDistance;
-            if (distance > preferred + 1f) SetState(EnemyAIState.Approach);
-            else if (distance < preferred - 1f) SetState(EnemyAIState.Reposition);
+            int rangeCorrection = GetAttackRangeCorrection(distance);
+            if (rangeCorrection > 0) SetState(EnemyAIState.Approach);
+            else if (rangeCorrection < 0) SetState(EnemyAIState.Reposition);
             else SetState(EnemyAIState.Idle);
             decisionTimer = EffectiveSelectionInterval;
-            selectionReason = "No valid pattern: range, mana, cooldown, or observed counter window";
+            selectionReason = rangeCorrection == 0
+                ? "No available pattern in current attack range"
+                : "Moving into an attack pattern's range";
             return;
         }
+        if (best == null)
+        {
+            selectedPattern = null;
+            SetState(EnemyAIState.Idle);
+            return;
+        }
+
         selectedPattern = best;
         actionIndex = 0;
-        observedPlayerAttack = false;
-        selectionReason = "Weighted by valid pattern, personality preference, and aggression";
-        if (best == null) { SetState(EnemyAIState.Idle); return; }
-        stateTimer = best.PreparationTime + EffectiveReactionTime;
+        if (best.Kind == EnemyPatternKind.Counter)
+        {
+            observedPlayerAttack = false;
+            counterObservationRemaining = 0f;
+        }
+        selectionReason = best.Kind == EnemyPatternKind.Counter
+            ? "Reactive counter to the player's spell"
+            : "Weighted by valid pattern, personality preference, and aggression";
+        bool isParry = best.Actions[0] is DefensiveSpellDefinition defensiveSpell
+            && defensiveSpell.Mode == DefensiveMode.Parry;
+        stateTimer = best.PreparationTime + (isParry ? 0f : EffectiveReactionTime);
         SetState(best.Actions[0] is DefensiveSpellDefinition ? EnemyAIState.Defend : EnemyAIState.PrepareAttack);
     }
 
@@ -223,7 +304,8 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
         if (selectedPattern == null || selectedPattern.Actions == null || actionIndex >= selectedPattern.Actions.Length)
         { SetState(EnemyAIState.Recover); stateTimer = selectedPattern != null ? selectedPattern.RecoveryTime : 0.5f; return; }
         FacePlayer();
-        if (Random.value > attackAccuracy)
+        SpellDefinition action = selectedPattern.Actions[actionIndex];
+        if (!(action is DefensiveSpellDefinition) && Random.value > attackAccuracy)
         {
             actionIndex++;
             continuePatternAfterPause = actionIndex < selectedPattern.Actions.Length;
@@ -232,7 +314,8 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
             SetState(EnemyAIState.Recover);
             return;
         }
-        if (!spellCaster.TryCastSpell(selectedPattern.Actions[actionIndex]))
+        // Enemy patterns always execute charged spells at full charge.
+        if (!spellCaster.TryCastSpell(action, 1f))
         {
             selectedPattern = null;
             SetState(EnemyAIState.Recover);
@@ -255,11 +338,48 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
         }
     }
 
-    private void MoveToRange()
+    // Returns 1 when too far, -1 when too close, and 0 when inside any pattern range.
+    private int GetAttackRangeCorrection(float distance)
     {
+        if (patterns == null)
+            return 0;
+
+        float nearestGap = float.PositiveInfinity;
+        int correction = 0;
+        for (int i = 0; i < patterns.Length; i++)
+        {
+            EnemyAIPattern pattern = patterns[i];
+            if (pattern == null)
+                continue;
+            if (distance >= pattern.MinDistance && distance <= pattern.MaxDistance)
+                return 0;
+
+            float gap = distance < pattern.MinDistance
+                ? pattern.MinDistance - distance
+                : distance - pattern.MaxDistance;
+            if (gap >= nearestGap)
+                continue;
+
+            nearestGap = gap;
+            correction = distance < pattern.MinDistance ? -1 : 1;
+        }
+        return correction;
+    }
+
+    private void MoveToAttackRange()
+    {
+        if (player == null || personality == null)
+            return;
+
         float distance = Vector3.Distance(transform.position, player.position);
-        float offset = distance > personality.PreferredDistance ? 1f : -1f;
-        Vector3 direction = (player.position - transform.position).normalized * offset;
+        int correction = GetAttackRangeCorrection(distance);
+        if (correction == 0)
+        {
+            SetState(EnemyAIState.EvaluateCombat);
+            return;
+        }
+
+        Vector3 direction = (player.position - transform.position).normalized * correction;
         MoveWithGroundCheck(direction, personality.MovementSpeed);
     }
 
@@ -282,17 +402,12 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
         if (towardPlayer.sqrMagnitude < 0.001f) return;
         towardPlayer.Normalize();
         Vector3 lateral = Vector3.Cross(Vector3.up, towardPlayer) * strafeDirection;
-        float distance = Vector3.Distance(transform.position, player.position);
-        Vector3 spacing = Vector3.zero;
-        if (distance > personality.PreferredDistance + 1f) spacing = towardPlayer;
-        else if (distance < personality.PreferredDistance - 1f) spacing = -towardPlayer;
-
         Vector3 movement;
         float speed;
         if (dodgeRemaining > 0f)
         {
             dodgeRemaining = Mathf.Max(0f, dodgeRemaining - Time.deltaTime);
-            movement = lateral + spacing * 0.35f - towardPlayer * 0.45f;
+            movement = lateral - towardPlayer * 0.45f;
             speed = personality.CombatStrafeSpeed * personality.DodgeSpeedMultiplier;
         }
         else
@@ -303,7 +418,7 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
                 strafeDirection = -strafeDirection;
                 strafeDirectionTimer = personality.StrafeDirectionInterval * Random.Range(0.85f, 1.25f);
             }
-            movement = lateral + spacing * 0.5f;
+            movement = lateral;
             speed = personality.CombatStrafeSpeed;
         }
 
@@ -399,10 +514,4 @@ public sealed class EnemyCombatAI : MonoBehaviour, IStunnable
         if (debugState) Debug.Log($"{name} AI: {state} | {CurrentPattern} | {CurrentAction} | mana {spellCaster?.CurrentMana:F0} | {selectionReason}", this);
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        if (personality == null) return;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, personality.PreferredDistance);
-    }
 }

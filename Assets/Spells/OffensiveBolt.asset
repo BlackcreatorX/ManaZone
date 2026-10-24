@@ -16,3 +16,5 @@ MonoBehaviour:
   cooldown: 1
   manaCost: 15
   projectilePrefab: {fileID: 5017330535958720123, guid: 1fdb5cfe1e559d14d90a19696e4b3b39, type: 3}
+  stunDuration: 1.2
+  flipTargetDuringStun: 1

@@ -1584,7 +1584,7 @@ GameObject:
   - component: {fileID: 905283700}
   - component: {fileID: 905283701}
   m_Layer: 5
-  m_Name: PlayerHp
+  m_Name: EnemyHp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2689,6 +2689,81 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470072667}
   m_CullTransparentMesh: 1
+--- !u!1 &1486591020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1486591021}
+  - component: {fileID: 1486591023}
+  - component: {fileID: 1486591022}
+  m_Layer: 5
+  m_Name: UpgradeSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1486591021
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486591020}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1614855461}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: -221.2672, y: -124.3846}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1486591022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486591020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.9339623, g: 0, b: 0.77921903, a: 0.5803922}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1486591023
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486591020}
+  m_CullTransparentMesh: 1
 --- !u!1 &1531410313
 GameObject:
   m_ObjectHideFlags: 0
@@ -3122,6 +3197,7 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1486591021}
   - {fileID: 1362759369}
   - {fileID: 20941964}
   - {fileID: 1238712092}
@@ -3265,6 +3341,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpellableTarget
   maxHealth: 100
   slowMultiplier: 0.4
+  stunDuration: 1.2
   healthBar: {fileID: 0}
   NameText: {fileID: 0}
 --- !u!114 &1620736998
@@ -4106,6 +4183,9 @@ MonoBehaviour:
     m_Bits: 64
   wallClearance: 1.2
   stunDuration: 1.2
+  defensiveResponseChance: 0.45
+  defensiveResponse: {fileID: 11400000, guid: d41bca01eaf141eabc4f3d50d231c94f, type: 2}
+  counterObservationWindow: 1.75
   attackAccuracy: 0.9
   debugState: 0
 --- !u!114 &2126461922
@@ -4130,6 +4210,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
   - {fileID: 11400000, guid: 871eb080369c4a8d82c63d2976e8392b, type: 2}
   - {fileID: 11400000, guid: 41d7d926a6e44b4ea1744caa99b15d1a, type: 2}
+  - {fileID: 11400000, guid: d41bca01eaf141eabc4f3d50d231c94f, type: 2}
+  - {fileID: 11400000, guid: 461ed28f55444d158ad82e332986bf3f, type: 2}
   spellSelectionText: {fileID: 0}
 --- !u!114 &2126461923
 MonoBehaviour:
@@ -4160,7 +4242,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HPSystem
   maxHealth: 100
-  healthSlider: {fileID: 0}
+  healthSlider: {fileID: 905283701}
   healthText: {fileID: 0}
 --- !u!143 &2126461925
 CharacterController:
