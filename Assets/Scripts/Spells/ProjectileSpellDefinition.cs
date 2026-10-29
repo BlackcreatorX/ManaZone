@@ -6,6 +6,11 @@ public sealed class ProjectileSpellDefinition : SpellDefinition
     [SerializeField] private GameObject projectilePrefab;
     [SerializeField, Min(0f)] private float stunDuration = 1.2f;
     [SerializeField] private bool flipTargetDuringStun = true;
+    [SerializeField] private bool isBasicAttack;
+    [SerializeField] private bool isStunAttack;
+
+    public bool IsBasicAttack => isBasicAttack;
+    public bool IsStunAttack => isStunAttack;
 
     public override bool Cast(SpellCastContext context)
     {
@@ -28,6 +33,9 @@ public sealed class ProjectileSpellDefinition : SpellDefinition
         CCProjectile controlProjectile = projectile.GetComponent<CCProjectile>();
         if (controlProjectile != null)
             controlProjectile.SetStunEffect(stunDuration, flipTargetDuringStun);
+
+        if (launchable is IOwnedSpellProjectile ownedProjectile)
+            ownedProjectile.SetOwner(context.Owner);
 
         launchable.Launch(context.CastPoint.forward);
         return true;

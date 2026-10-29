@@ -39,6 +39,10 @@ public class ShieldEffect : MonoBehaviour
         CCProjectile ccProjectile =
             other.GetComponentInParent<CCProjectile>();
 
+        if ((spellProjectile != null && spellProjectile.IsOwnedBy(transform.root))
+            || (ccProjectile != null && ccProjectile.IsOwnedBy(transform.root)))
+            return;
+
         if (spellProjectile == null && ccProjectile == null)
             return;
 

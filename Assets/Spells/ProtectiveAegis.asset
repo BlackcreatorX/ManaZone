@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Escudo
   cooldown: 1
   manaCost: 20
-  mode: 0
+  mode: 1
   shieldPrefab: {fileID: 1657132354178111425, guid: 1a5c44512e5e4f044a829ef0284c749e, type: 3}
   parryPrefab: {fileID: 1657132354178111425, guid: 08d48455ec28abc4ab2ba5ad3446c792, type: 3}
   parryDisplayName: Parry

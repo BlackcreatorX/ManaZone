@@ -47,7 +47,7 @@ Los hechizos se definen con ScriptableObjects derivados de `SpellDefinition`. Ca
 
 | Hechizo | Categoría | Función |
 |---|---|---|
-| `OffensiveBolt` / Rayo arcano | Ofensivo | Crea un `SpellProjectile` que inflige daño. El asset actual cuesta 15 de maná y tiene 1 s de cooldown. |
+| `OffensiveBolt` / Rayo arcano | Ofensivo | Crea un `SpellProjectile` que inflige daño y es el ataque básico del jugador. Cuesta 15 de maná; para el jugador, el cooldown sigue la duración del clip de ataque activo. La IA conserva el cooldown del asset. |
 | `ProtectiveAegis` | Defensivo | El asset está configurado como escudo: consume maná mientras permanece activo. Su modo y sus costes se configuran en el asset. `EnemyParry` es el asset de ejemplo configurado como parry. |
 | `BindingBolt` / Vincula | Control | Crea un `CCProjectile`, aturde durante 2,5 s y pone de cabeza el modelo del objetivo durante el stun. Cuesta 20 de maná y tiene 4 s de cooldown. La duración se configura en el asset del hechizo. |
 | `StunOnly` / Aturdimiento | Control | Aplica stun durante 1,5 s sin voltear el modelo. Cuesta 15 de maná y tiene 4 s de cooldown; duración, coste y cooldown configurables en su asset. |
@@ -59,6 +59,24 @@ Para usar `ChargedBurst` con el jugador, asígnalo a una ranura de `SpellCaster 
 Los prefabs de proyectil implementan `ILaunchableSpell`. Los proyectiles consultan las interfaces de combate en el objeto impactado: `IDamageable`, `IStunnable` o `ISlowable`. El sistema no duplica el daño, la vida ni el maná para la IA.
 
 Los proyectiles ofensivos atraviesan otros proyectiles sin destruirse. Las defensas mantienen un comportamiento especial: Shield destruye el proyectil interceptado y Parry lo refleja hacia su nuevo propietario.
+
+## Animaciones del jugador
+
+El `PlayerAnimationController` usa `x` e `y` para dirigir el Blend Tree de movimiento. `TPSController` suaviza esos parámetros y activa los triggers de acciones. Los triggers configurados son:
+
+| Trigger | Cuándo se activa | Estado/clip esperado |
+|---|---|---|
+| `SignalDamage` | `HPSystem` aplica daño válido al jugador. | `Damage` / `HumanF@CastingDamage01` |
+| `signalParry` | El jugador lanza correctamente una defensa configurada en modo `Parry`. El modo `Shield` no activa esta animación. | `ParryAnim` |
+| `SignalBasicA` | Primer golpe del ataque básico o reinicio del combo. | `BasicDamage0` |
+| `SignalBasicB` | Segundo lanzamiento básico válido dentro de la ventana del combo. | `BasicDamage1` |
+| `SignalStun` | El jugador lanza correctamente un hechizo de proyectil configurado como ataque de stun. | `StunProjectile` |
+
+El combo usa los clips `BasicDamage0` y `BasicDamage1`. El código alterna ambos triggers solo después de que el lanzamiento de `OffensiveBolt` tenga éxito. La ventana para el segundo golpe cubre como mínimo la duración del primer clip más 0,25 s. El cooldown del lanzamiento básico del jugador se ajusta a la duración del clip que acaba de activarse, leída del Animator Controller; si no encuentra el clip, usa el cooldown del asset. La IA sigue usando los cooldowns de sus hechizos.
+
+En el Animator, configura transiciones desde `Any State` para los triggers de acción, con `Has Exit Time` desactivado. Conecta `SignalBasicA` a `BasicDamage0` y `SignalBasicB` a `BasicDamage1`. Los estados de acción deben volver al Blend Tree al final de su clip. `BasicDamage0` y `BasicDamage1` deben conservar esos nombres para que el controlador pueda leer sus duraciones.
+
+Los proyectiles guardan la raíz de su lanzador. Parry y Shield ignoran proyectiles de su propio dueño; al reflejarse, el proyectil actualiza su dueño al defensor.
 
 ## Recursos del jugador
 
@@ -263,8 +281,8 @@ Las colisiones entre proyectiles ofensivos no los cancelan: `SpellProjectile` y 
 
 | Componente | Responsabilidad |
 |---|---|
-| `TPSController` | Movimiento del jugador y respuesta al stun. |
-| `SpellCaster` | Input del jugador, loadout, cooldowns, consumo de maná y API compartida de lanzamiento. |
+| `TPSController` | Movimiento, Blend Tree, triggers de acción, combo básico de dos golpes y respuesta al stun. |
+| `SpellCaster` | Input del jugador, loadout, cooldowns, consumo de maná y API compartida de lanzamiento; ajusta el cooldown del ataque básico del jugador a la duración de su clip. |
 | `SpellDefinition` | Datos y ejecución polimórfica de cada hechizo. |
 | `EnemyCombatAI` | Máquina de estados, selección de patrones, posicionamiento y esquivas. |
 | `EnemyAIPattern` | Datos reutilizables de acciones, rango, preparación y recuperación. |
@@ -334,8 +352,9 @@ Los ScriptableObjects son assets de datos compartibles, no componentes de escena
 - [x] Aproximación, reposicionamiento, movimiento lateral, esquiva y comprobación física de suelo/pared.
 - [x] Stun del jugador mediante `TPSController` y del enemigo mediante `EnemyCombatAI`.
 - [x] Colisiones entre proyectiles ofensivos sin cancelación y resolución de Shield/Parry.
+- [x] Animaciones del jugador para daño, parry, ataques básico y de stun; combo básico de dos golpes.
 - [x] Notificación de hechizos ofensivos del jugador para activar respuestas y patrones de contraataque.
-- [ ] Señales visuales o animaciones para preparación, defensa y stun.
+- [ ] Animaciones de preparación y de reacción al stun recibido.
 - [ ] Balance de patrones y movimiento en Play Mode.
 - [ ] Sistema de mejoras roguelike.
 

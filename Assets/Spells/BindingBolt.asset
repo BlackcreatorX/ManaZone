@@ -18,3 +18,4 @@ MonoBehaviour:
   projectilePrefab: {fileID: 1643262983094957903, guid: 7aab3506794d584458b5ef5dd3c94cbe, type: 3}
   stunDuration: 2.5
   flipTargetDuringStun: 1
+  isStunAttack: 1

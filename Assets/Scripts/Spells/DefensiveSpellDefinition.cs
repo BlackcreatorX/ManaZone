@@ -64,6 +64,10 @@ public sealed class DefensiveSpellDefinition : SpellDefinition
         }
 
         parry.Activate(parryWindow, context.Mana, manaRecovery);
+        TPSController playerController = context.Caster.GetComponent<TPSController>();
+        if (playerController != null)
+            playerController.PlayParryAnimation();
+
         return true;
     }
 }

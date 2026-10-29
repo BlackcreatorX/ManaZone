@@ -2,7 +2,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class SpellProjectile : MonoBehaviour, ILaunchableSpell
+public class SpellProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProjectile
 {
     [Header("Projectile")]
     [SerializeField] private float speed = 20f;
@@ -15,6 +15,7 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell
 
     private Rigidbody rb;
     private Transform ignoredOwner;
+    public Transform OwnerRoot => ignoredOwner;
 
     private void Awake()
     {
@@ -28,6 +29,16 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell
         rb.linearVelocity = direction.normalized * speed;
 
         Destroy(gameObject, lifetime);
+    }
+
+    public void SetOwner(Transform owner)
+    {
+        ignoredOwner = owner != null ? owner.root : null;
+    }
+
+    public bool IsOwnedBy(Transform owner)
+    {
+        return owner != null && ignoredOwner == owner.root;
     }
 
     public void SetDamage(float value)

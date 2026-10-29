@@ -1,7 +1,7 @@
 
 using UnityEngine;
 
-public class CCProjectile : MonoBehaviour, ILaunchableSpell
+public class CCProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProjectile
 {
     [Header("Projectile Settings")]
     [SerializeField] private float speed = 20f;
@@ -13,6 +13,7 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell
     private bool hasHit;
     private bool isLaunched;
     private Transform ignoredOwner;
+    public Transform OwnerRoot => ignoredOwner;
 
     public void SetStunDuration(float duration)
     {
@@ -23,6 +24,16 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell
     {
         SetStunDuration(duration);
         flipTargetDuringStun = flipVisual;
+    }
+
+    public void SetOwner(Transform owner)
+    {
+        ignoredOwner = owner != null ? owner.root : null;
+    }
+
+    public bool IsOwnedBy(Transform owner)
+    {
+        return owner != null && ignoredOwner == owner.root;
     }
 
     public void Launch(Vector3 launchDirection)

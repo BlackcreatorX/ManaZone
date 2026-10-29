@@ -30,3 +30,10 @@ public interface ILaunchableSpell
 {
     void Launch(Vector3 direction);
 }
+
+/// <summary>Optional ownership tracking for projectiles that can interact with defenses.</summary>
+public interface IOwnedSpellProjectile
+{
+    Transform OwnerRoot { get; }
+    void SetOwner(Transform owner);
+}

@@ -48,6 +48,10 @@ public class HPSystem : MonoBehaviour, IDamageable
 
         CurrentHealth -= damage;
 
+        TPSController playerController = GetComponent<TPSController>();
+        if (playerController != null)
+            playerController.PlayDamageAnimation();
+
         Debug.Log($"{name} recibió {damage} de daño. Vida: {CurrentHealth}");
 
         if (CurrentHealth <= 0f)

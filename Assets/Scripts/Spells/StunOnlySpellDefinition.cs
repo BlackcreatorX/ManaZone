@@ -21,6 +21,7 @@ public sealed class StunOnlySpellDefinition : SpellDefinition
         }
 
         controlProjectile.SetStunEffect(stunDuration, false);
+        controlProjectile.SetOwner(context.Owner);
         controlProjectile.Launch(context.CastPoint.forward);
         return true;
     }

@@ -154,7 +154,7 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         if (attacker == null)
             return;
 
-        EnemyCombatAI[] enemies = FindObjectsOfType<EnemyCombatAI>();
+        EnemyCombatAI[] enemies = FindObjectsByType<EnemyCombatAI>(FindObjectsSortMode.None);
         for (int i = 0; i < enemies.Length; i++)
         {
             EnemyCombatAI enemy = enemies[i];

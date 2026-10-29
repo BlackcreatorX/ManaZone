@@ -24,7 +24,7 @@ public class ParryEffect : MonoBehaviour
 
     public bool TryParry(SpellProjectile projectile)
     {
-        if (!CanParry())
+        if (!CanParry() || IsOwnedByParrier(projectile))
             return false;
 
         projectile.Reflect(transform.root);
@@ -34,7 +34,7 @@ public class ParryEffect : MonoBehaviour
 
     public bool TryParry(CCProjectile projectile)
     {
-        if (!CanParry())
+        if (!CanParry() || IsOwnedByParrier(projectile))
             return false;
 
         projectile.Reflect(transform.root);
@@ -77,6 +77,11 @@ public class ParryEffect : MonoBehaviour
     private bool CanParry()
     {
         return isActive && !hasResolved;
+    }
+
+    private bool IsOwnedByParrier(IOwnedSpellProjectile projectile)
+    {
+        return projectile != null && projectile.OwnerRoot == transform.root;
     }
 
     private void CompleteSuccessfulParry()

@@ -259,10 +259,16 @@ public class SpellCaster : MonoBehaviour
             return false;
         }
 
+        float cooldown = spell.Cooldown;
+        if (playerMovement != null && spell is ProjectileSpellDefinition projectileSpell && projectileSpell.IsBasicAttack)
+            cooldown = playerMovement.PlayBasicAttackAnimation(spell.Cooldown);
+        else if (playerMovement != null && spell is ProjectileSpellDefinition stunSpell && stunSpell.IsStunAttack)
+            playerMovement.PlayStunAttackAnimation();
+
         if (playerMovement != null && !(spell is DefensiveSpellDefinition))
             EnemyCombatAI.NotifyPlayerSpellCast(transform);
 
-        cooldowns[spell] = spell.Cooldown;
+        cooldowns[spell] = cooldown;
         return true;
     }
 
@@ -344,7 +350,11 @@ public class SpellCaster : MonoBehaviour
             GameObject projectile = Instantiate(projectilePrefab, castPoint.position, castPoint.rotation);
             ILaunchableSpell launchable = projectile.GetComponent<ILaunchableSpell>();
             if (launchable != null)
+            {
+                if (launchable is IOwnedSpellProjectile ownedProjectile)
+                    ownedProjectile.SetOwner(transform);
                 launchable.Launch(castPoint.forward);
+            }
             else
                 Destroy(projectile);
 
