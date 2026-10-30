@@ -19,6 +19,13 @@ public class SpellCaster : MonoBehaviour
     [SerializeField] private SpellDefinition[] equippedSpells;
     [SerializeField] private TMP_Text spellSelectionText;
 
+    [Header("Spell Visuals")]
+    [Tooltip("Visuales asociados por índice a los hechizos equipados. Déjalos apagados en la escena.")]
+    [SerializeField] private GameObject[] spellVisuals = new GameObject[3];
+    [SerializeField, Min(0.01f)] private float visualStartScale = 0.1f;
+    [SerializeField, Min(0f)] private float visualGrowDuration = 0.3f;
+    [SerializeField, Min(0f)] private float visualVisibleDuration = 2f;
+
     private readonly List<InputAction> selectActions = new List<InputAction>();
     private readonly Dictionary<SpellDefinition, float> cooldowns = new Dictionary<SpellDefinition, float>();
     private InputAction castAction;
@@ -29,9 +36,12 @@ public class SpellCaster : MonoBehaviour
     private ChargedSpellDefinition chargingSpell;
     private float chargeStartedAt;
     private bool restoreManaRegeneration;
+    private GameObject activeSpellVisual;
+    private Coroutine visualGrowCoroutine;
 
     private void Awake()
     {
+        HideSpellVisuals();
         if (manaSystem == null)
             manaSystem = GetComponent<ManaSystem>();
         playerMovement = GetComponent<TPSController>();
@@ -269,7 +279,93 @@ public class SpellCaster : MonoBehaviour
             EnemyCombatAI.NotifyPlayerSpellCast(transform);
 
         cooldowns[spell] = cooldown;
+        ShowSpellVisual(spell);
         return true;
+    }
+
+    private void HideSpellVisuals()
+    {
+        if (spellVisuals == null)
+            return;
+
+        foreach (GameObject visual in spellVisuals)
+        {
+            if (visual != null)
+                visual.SetActive(false);
+        }
+    }
+
+    private void ShowSpellVisual(SpellDefinition spell)
+    {
+        if (spellVisuals == null || spell == null)
+            return;
+
+        int spellIndex = System.Array.IndexOf(equippedSpells, spell);
+        if (spellIndex < 0 || spellIndex >= spellVisuals.Length)
+            return;
+
+        GameObject nextVisual = spellVisuals[spellIndex];
+        if (visualGrowCoroutine != null)
+        {
+            StopCoroutine(visualGrowCoroutine);
+            visualGrowCoroutine = null;
+        }
+
+        // Apaga cualquier visual asignado que haya quedado activo antes de encender el nuevo.
+        foreach (GameObject visual in spellVisuals)
+        {
+            if (visual != null && visual != nextVisual)
+                visual.SetActive(false);
+        }
+
+        if (activeSpellVisual == nextVisual)
+        {
+            if (activeSpellVisual != null)
+            {
+                activeSpellVisual.SetActive(true);
+                visualGrowCoroutine = StartCoroutine(HideSpellVisualAfterDelay(activeSpellVisual, visualVisibleDuration));
+            }
+            return;
+        }
+
+        activeSpellVisual = nextVisual;
+        if (activeSpellVisual == null)
+            return;
+
+        activeSpellVisual.transform.localScale = Vector3.one * visualStartScale;
+        activeSpellVisual.SetActive(true);
+        visualGrowCoroutine = StartCoroutine(GrowSpellVisual(activeSpellVisual));
+    }
+
+    private System.Collections.IEnumerator GrowSpellVisual(GameObject visual)
+    {
+        Vector3 startScale = Vector3.one * visualStartScale;
+        Vector3 targetScale = Vector3.one;
+        float elapsed = 0f;
+
+        while (elapsed < visualGrowDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = visualGrowDuration > 0f ? Mathf.Clamp01(elapsed / visualGrowDuration) : 1f;
+            visual.transform.localScale = Vector3.Lerp(startScale, targetScale, progress);
+            yield return null;
+        }
+
+        visual.transform.localScale = targetScale;
+        yield return HideSpellVisualAfterDelay(visual, visualVisibleDuration);
+    }
+
+    private System.Collections.IEnumerator HideSpellVisualAfterDelay(GameObject visual, float delay)
+    {
+        if (delay > 0f)
+            yield return new WaitForSeconds(delay);
+
+        if (activeSpellVisual == visual)
+        {
+            visual.SetActive(false);
+            activeSpellVisual = null;
+        }
+        visualGrowCoroutine = null;
     }
 
     public bool CanCastSpell(SpellDefinition spell)
