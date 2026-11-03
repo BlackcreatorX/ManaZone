@@ -52,7 +52,7 @@ Material:
     - _QueueOffset: 0
     - _RippleStreanght: 1.3
     - _Ripplecount: 4
-    - _RotationSpeed: 0.2
+    - _RotationSpeed: 1
     - _TwirlStrenght: 27.5
     m_Colors: []
   m_BuildTextureStacks: []
