@@ -13,6 +13,8 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     [SerializeField] private SpellCaster spellCaster;
     [SerializeField] private ManaSystem mana;
     [SerializeField] private HPSystem health;
+    [SerializeField] private Animator animator;
+    [SerializeField, Min(0f)] private float animationDampTime = 0.15f;
     [Header("Ground navigation")]
     [SerializeField] private LayerMask groundLayers = 1 << 3;
     [SerializeField, Min(0.1f)] private float groundProbeDistance = 1.25f;
@@ -27,6 +29,11 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     [SerializeField] private bool debugState;
 
     private CharacterController controller;
+    private static readonly int AnimationX = Animator.StringToHash("x");
+    private static readonly int AnimationY = Animator.StringToHash("y");
+    private float animationX, animationY;
+    private bool hasAnimationX, hasAnimationY;
+    private bool animationParametersChecked;
     private EnemyAIState state;
     private EnemyAIPattern selectedPattern;
     private int actionIndex;
@@ -51,6 +58,7 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        FindAnimator();
         if (spellCaster == null) spellCaster = GetComponent<SpellCaster>();
         if (mana == null) mana = GetComponent<ManaSystem>();
         if (health == null) health = GetComponent<HPSystem>();
@@ -78,16 +86,17 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
 
     private void Update()
     {
-        if (health != null && health.CurrentHealth <= 0f) { SetState(EnemyAIState.Dead); return; }
-        if (state == EnemyAIState.Dead) return;
+        if (health != null && health.CurrentHealth <= 0f) { SetState(EnemyAIState.Dead); UpdateAnimation(); return; }
+        if (state == EnemyAIState.Dead) { UpdateAnimation(); return; }
         if (stunTimer > 0f)
         {
             stunTimer -= Time.deltaTime;
             SetState(EnemyAIState.Stunned);
             if (stunTimer <= 0f) { selectedPattern = null; SetState(EnemyAIState.EvaluateCombat); }
+            UpdateAnimation();
             return;
         }
-        if (player == null || personality == null || spellCaster == null) { SetState(EnemyAIState.Idle); return; }
+        if (player == null || personality == null || spellCaster == null) { SetState(EnemyAIState.Idle); UpdateAnimation(); return; }
 
         decisionTimer -= Time.deltaTime;
         if (observedPlayerAttack)
@@ -147,6 +156,8 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         if (state != EnemyAIState.Stunned && state != EnemyAIState.Dead
             && state != EnemyAIState.Approach && state != EnemyAIState.Reposition)
             MoveDuringCombat();
+
+        UpdateAnimation();
     }
 
     public static void NotifyPlayerSpellCast(Transform attacker)
@@ -466,6 +477,53 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         }
 
         controller.Move(chosenDirection * speed * Time.deltaTime);
+        Vector3 localDirection = transform.InverseTransformDirection(chosenDirection);
+        animationX = localDirection.x;
+        animationY = localDirection.z;
+    }
+
+    private void UpdateAnimation()
+    {
+        if (animator == null)
+            FindAnimator();
+        if (animator == null || !animator.isActiveAndEnabled)
+            return;
+
+        if (!animationParametersChecked && animator.runtimeAnimatorController != null)
+        {
+            hasAnimationX = false;
+            hasAnimationY = false;
+            foreach (AnimatorControllerParameter parameter in animator.parameters)
+            {
+                if (parameter.type != AnimatorControllerParameterType.Float) continue;
+                if (parameter.nameHash == AnimationX) hasAnimationX = true;
+                else if (parameter.nameHash == AnimationY) hasAnimationY = true;
+            }
+            animationParametersChecked = true;
+            if (!hasAnimationX && !hasAnimationY)
+                Debug.LogWarning($"{name}: el Animator Controller '{animator.runtimeAnimatorController.name}' no tiene parámetros Float 'x' o 'y' para el Blend Tree de movimiento.", animator);
+        }
+
+        float targetX = state == EnemyAIState.Stunned || state == EnemyAIState.Dead ? 0f : animationX;
+        float targetY = state == EnemyAIState.Stunned || state == EnemyAIState.Dead ? 0f : animationY;
+        if (hasAnimationX) animator.SetFloat(AnimationX, targetX, animationDampTime, Time.deltaTime);
+        if (hasAnimationY) animator.SetFloat(AnimationY, targetY, animationDampTime, Time.deltaTime);
+
+        // Clear stale movement when the AI stops moving this frame.
+        animationX = 0f;
+        animationY = 0f;
+    }
+
+    private void FindAnimator()
+    {
+        if (animator != null)
+            return;
+
+        // Support rigs where the AI is on a gameplay root and the Animator is
+        // either on a visual child or on a shared parent object.
+        animator = GetComponentInChildren<Animator>(true);
+        if (animator == null)
+            animator = GetComponentInParent<Animator>();
     }
 
     private bool CanMoveDirection(Vector3 direction, float speed)
