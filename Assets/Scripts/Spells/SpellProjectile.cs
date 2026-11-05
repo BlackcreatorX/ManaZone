@@ -59,6 +59,12 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProje
 
     private void OnTriggerEnter(Collider other)
     {
+        if (other.gameObject.layer == LayerMask.NameToLayer("muro"))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (ignoredOwner != null && other.transform.root == ignoredOwner)
             return;
 

@@ -15,7 +15,8 @@ MonoBehaviour:
   displayName: Rayo arcano
   cooldown: 1
   manaCost: 15
-  projectilePrefab: {fileID: 5017330535958720123, guid: 1fdb5cfe1e559d14d90a19696e4b3b39, type: 3}
+  projectilePrefab: {fileID: 9041305891959538010, guid: e86a82967e8bbee41a66f67e9476e885, type: 3}
   stunDuration: 1.2
   flipTargetDuringStun: 1
   isBasicAttack: 1
+  isStunAttack: 0

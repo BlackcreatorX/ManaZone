@@ -72,6 +72,13 @@ public class CCProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProjecti
         if (hasHit)
             return;
 
+        if (other.gameObject.layer == LayerMask.NameToLayer("muro"))
+        {
+            hasHit = true;
+            Destroy(gameObject);
+            return;
+        }
+
         if (ignoredOwner != null && other.transform.root == ignoredOwner)
             return;
 
