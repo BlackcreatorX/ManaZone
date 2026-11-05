@@ -38,6 +38,7 @@ public class SpellCaster : MonoBehaviour
     private bool restoreManaRegeneration;
     private GameObject activeSpellVisual;
     private Coroutine visualGrowCoroutine;
+    private GameObject activeChargeVisual;
 
     private void Awake()
     {
@@ -147,6 +148,8 @@ public class SpellCaster : MonoBehaviour
             return;
 
         selectedSpellIndex = index;
+        if (chargingSpell != null)
+            CancelCharge();
         UpdateSelectionLabel();
     }
 
@@ -186,6 +189,9 @@ public class SpellCaster : MonoBehaviour
                 chargeStartedAt = Time.time;
                 restoreManaRegeneration = manaSystem.RegenerationEnabled;
                 manaSystem.RegenerationEnabled = false;
+                if (playerMovement != null)
+                    playerMovement.PlayChargeStartAnimation();
+                ShowChargeVisual(chargedSpell);
             }
             return;
         }
@@ -196,8 +202,13 @@ public class SpellCaster : MonoBehaviour
     private void ReleaseChargedSpell()
     {
         ChargedSpellDefinition spell = chargingSpell;
+        if (spell == null)
+            return;
         chargingSpell = null;
         manaSystem.RegenerationEnabled = restoreManaRegeneration;
+        HideChargeVisual();
+        if (playerMovement != null)
+            playerMovement.PlayChargeReleasedAnimation();
         float charge01 = Mathf.Clamp01((Time.time - chargeStartedAt) / spell.ChargeDuration);
         TryCastSpellInternal(spell, charge01, true);
     }
@@ -234,6 +245,47 @@ public class SpellCaster : MonoBehaviour
         chargingSpell = null;
         if (manaSystem != null)
             manaSystem.RegenerationEnabled = restoreManaRegeneration;
+        HideChargeVisual();
+        if (playerMovement != null)
+            playerMovement.PlayChargeReleasedAnimation();
+    }
+
+    private void ShowChargeVisual(SpellDefinition spell)
+    {
+        HideChargeVisual();
+        if (visualGrowCoroutine != null)
+        {
+            StopCoroutine(visualGrowCoroutine);
+            visualGrowCoroutine = null;
+        }
+        if (activeSpellVisual != null)
+            activeSpellVisual.SetActive(false);
+        activeSpellVisual = null;
+        if (spellVisuals == null || equippedSpells == null)
+            return;
+
+        int spellIndex = System.Array.IndexOf(equippedSpells, spell);
+        if (spellIndex >= 0 && spellIndex < spellVisuals.Length)
+            activeChargeVisual = spellVisuals[spellIndex];
+        if (activeChargeVisual == null)
+        {
+            for (int i = 0; i < spellVisuals.Length; i++)
+            {
+                if (spellVisuals[i] == null)
+                    continue;
+                activeChargeVisual = spellVisuals[i];
+                break;
+            }
+        }
+        if (activeChargeVisual != null)
+            activeChargeVisual.SetActive(true);
+    }
+
+    private void HideChargeVisual()
+    {
+        if (activeChargeVisual != null)
+            activeChargeVisual.SetActive(false);
+        activeChargeVisual = null;
     }
 
     /// <summary>Shared casting entry point for players and AI. Input remains owned by this component.</summary>
@@ -279,7 +331,8 @@ public class SpellCaster : MonoBehaviour
             EnemyCombatAI.NotifyPlayerSpellCast(transform);
 
         cooldowns[spell] = cooldown;
-        ShowSpellVisual(spell);
+        if (!(spell is ChargedSpellDefinition))
+            ShowSpellVisual(spell);
         return true;
     }
 

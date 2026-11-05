@@ -81,6 +81,18 @@ public class TPSController : MonoBehaviour, ITimedStunnable
             animator.SetTrigger("SignalStun");
     }
 
+    public void PlayChargeStartAnimation()
+    {
+        if (animator != null && animator.isActiveAndEnabled)
+            animator.SetTrigger("SignalStartCharge");
+    }
+
+    public void PlayChargeReleasedAnimation()
+    {
+        if (animator != null && animator.isActiveAndEnabled)
+            animator.SetTrigger("SignalRealesedCharge");
+    }
+
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
