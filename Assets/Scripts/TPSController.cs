@@ -33,6 +33,11 @@ public class TPSController : MonoBehaviour, ITimedStunnable
 
     public bool IsStunned => stunRemaining > 0f;
 
+    public void MultiplyMoveSpeed(float multiplier)
+    {
+        moveSpeed = Mathf.Max(0f, moveSpeed * Mathf.Max(0.1f, multiplier));
+    }
+
     public void PlayDamageAnimation()
     {
         if (animator != null && animator.isActiveAndEnabled)

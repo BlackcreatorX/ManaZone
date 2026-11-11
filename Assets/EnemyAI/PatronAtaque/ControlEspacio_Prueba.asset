@@ -15,7 +15,7 @@ MonoBehaviour:
   patternId: space_binding
   kind: 3
   actions:
-  - {fileID: 11400000, guid: 41d7d926a6e44b4ea1744caa99b15d1a, type: 2}
+  - {fileID: 11400000, guid: bfe98c289049ae445bbac3ad48791e14, type: 2}
   minDistance: 2
   maxDistance: 16
   preparationTime: 0.65

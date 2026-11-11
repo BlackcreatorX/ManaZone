@@ -21,7 +21,7 @@ public sealed class ChargedProjectileSpellDefinition : ChargedSpellDefinition
             return false;
         }
 
-        float damage = Mathf.Lerp(minimumDamage, Mathf.Max(minimumDamage, maximumDamage), context.Charge01);
+        float damage = Mathf.Lerp(minimumDamage, Mathf.Max(minimumDamage, maximumDamage), context.Charge01) * context.Caster.DamageMultiplier;
         spellProjectile.SetDamage(damage);
         spellProjectile.SetOwner(context.Owner);
         spellProjectile.Launch(context.CastPoint.forward);

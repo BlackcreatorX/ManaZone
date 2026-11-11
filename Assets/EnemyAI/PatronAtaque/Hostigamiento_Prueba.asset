@@ -15,10 +15,10 @@ MonoBehaviour:
   patternId: harass_bolt
   kind: 0
   actions:
-  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
-  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
-  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
-  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: bf54a9c28c5a1974ebf728a4a408d1bb, type: 2}
+  - {fileID: 11400000, guid: bf54a9c28c5a1974ebf728a4a408d1bb, type: 2}
+  - {fileID: 11400000, guid: bf54a9c28c5a1974ebf728a4a408d1bb, type: 2}
+  - {fileID: 11400000, guid: bf54a9c28c5a1974ebf728a4a408d1bb, type: 2}
   minDistance: 0
   maxDistance: 18
   preparationTime: 0.15

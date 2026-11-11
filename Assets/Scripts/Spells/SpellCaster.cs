@@ -39,6 +39,26 @@ public class SpellCaster : MonoBehaviour
     private GameObject activeSpellVisual;
     private Coroutine visualGrowCoroutine;
     private GameObject activeChargeVisual;
+    private float manaCostMultiplier = 1f;
+    private float damageMultiplier = 1f;
+    private float cooldownMultiplier = 1f;
+    private float controlDurationMultiplier = 1f;
+
+    public IReadOnlyList<SpellDefinition> EquippedSpells => equippedSpells;
+    public float ManaCostMultiplier => manaCostMultiplier;
+    public float DamageMultiplier => damageMultiplier;
+    public float CooldownMultiplier => cooldownMultiplier;
+    public float ControlDurationMultiplier => controlDurationMultiplier;
+
+    public void AddUpgrade(RoguelikeUpgradeDefinition upgrade)
+    {
+        if (upgrade == null) return;
+        manaCostMultiplier = Mathf.Max(0.1f, manaCostMultiplier * upgrade.ManaCostMultiplier);
+        damageMultiplier = Mathf.Max(0.1f, damageMultiplier * upgrade.DamageMultiplier);
+        cooldownMultiplier = Mathf.Max(0.1f, cooldownMultiplier * upgrade.CooldownMultiplier);
+        if (upgrade.Stat == RoguelikeUpgradeStat.ControlDuration)
+            controlDurationMultiplier = Mathf.Max(0.1f, controlDurationMultiplier * upgrade.ValueMultiplier);
+    }
 
     private void Awake()
     {
@@ -219,7 +239,7 @@ public class SpellCaster : MonoBehaviour
             return;
 
         float elapsed = Mathf.Min(deltaTime, Mathf.Max(0f, chargingSpell.ChargeDuration - (Time.time - chargeStartedAt)));
-        float drain = chargingSpell.ManaDrainPerSecond * elapsed;
+        float drain = chargingSpell.ManaDrainPerSecond * manaCostMultiplier * elapsed;
         if (elapsed > 0f)
         {
             float amountToSpend = Mathf.Min(drain, manaSystem.CurrentMana);
@@ -310,7 +330,7 @@ public class SpellCaster : MonoBehaviour
         if (cooldowns.TryGetValue(spell, out float remaining) && remaining > 0f)
             return false;
 
-        float manaCost = spell.IsPersistent || (chargeManaAlreadyPaid && spell is ChargedSpellDefinition) ? 0f : spell.ManaCost;
+        float manaCost = spell.IsPersistent || (chargeManaAlreadyPaid && spell is ChargedSpellDefinition) ? 0f : spell.ManaCost * manaCostMultiplier;
         if (manaSystem == null || !manaSystem.TrySpendMana(manaCost))
             return false;
 
@@ -321,9 +341,9 @@ public class SpellCaster : MonoBehaviour
             return false;
         }
 
-        float cooldown = spell.Cooldown;
+        float cooldown = spell.Cooldown * cooldownMultiplier;
         if (playerMovement != null && spell is ProjectileSpellDefinition projectileSpell && projectileSpell.IsBasicAttack)
-            cooldown = playerMovement.PlayBasicAttackAnimation(spell.Cooldown);
+            cooldown = playerMovement.PlayBasicAttackAnimation(cooldown);
         else if (playerMovement != null && spell is ProjectileSpellDefinition stunSpell && stunSpell.IsStunAttack)
             playerMovement.PlayStunAttackAnimation();
 
@@ -430,7 +450,7 @@ public class SpellCaster : MonoBehaviour
         bool ready = !cooldowns.TryGetValue(spell, out float remaining) || remaining <= 0f;
         if (spell is ChargedSpellDefinition)
             return ready && manaSystem.CurrentMana > 0f;
-        return ready && manaSystem.CurrentMana >= (spell.IsPersistent ? 0f : spell.ManaCost);
+        return ready && manaSystem.CurrentMana >= (spell.IsPersistent ? 0f : spell.ManaCost * manaCostMultiplier);
     }
 
     public float CurrentMana => manaSystem != null ? manaSystem.CurrentMana : 0f;

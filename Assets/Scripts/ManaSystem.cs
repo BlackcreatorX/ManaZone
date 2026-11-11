@@ -16,7 +16,21 @@ public class ManaSystem : MonoBehaviour
 
     public float CurrentMana { get; private set; }
     public float MaxMana => maxMana;
+    public float RegenerationPerSecond => regenerationPerSecond;
     public bool RegenerationEnabled { get; set; } = true;
+
+    public void MultiplyRegeneration(float multiplier)
+    {
+        regenerationPerSecond = Mathf.Max(0f, regenerationPerSecond * Mathf.Max(0f, multiplier));
+    }
+
+    public void MultiplyMaxMana(float multiplier)
+    {
+        float ratio = maxMana > 0f ? CurrentMana / maxMana : 1f;
+        maxMana = Mathf.Max(1f, maxMana * Mathf.Max(0.1f, multiplier));
+        CurrentMana = Mathf.Clamp(maxMana * ratio, 0f, maxMana);
+        NotifyManaChanged();
+    }
 
     // Notifica cuando cambia el maná.
     public event Action<float, float> OnManaChanged;

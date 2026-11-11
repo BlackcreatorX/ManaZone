@@ -20,7 +20,7 @@ public sealed class StunOnlySpellDefinition : SpellDefinition
             return false;
         }
 
-        controlProjectile.SetStunEffect(stunDuration, false);
+        controlProjectile.SetStunEffect(stunDuration * context.Caster.ControlDurationMultiplier, false);
         controlProjectile.SetOwner(context.Owner);
         controlProjectile.Launch(context.CastPoint.forward);
         return true;

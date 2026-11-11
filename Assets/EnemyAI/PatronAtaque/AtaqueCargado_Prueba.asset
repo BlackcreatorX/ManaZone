@@ -15,7 +15,7 @@ MonoBehaviour:
   patternId: charged_burst
   kind: 1
   actions:
-  - {fileID: 11400000, guid: 461ed28f55444d158ad82e332986bf3f, type: 2}
+  - {fileID: 11400000, guid: 39e9923df86623a4785fee48f39ab39c, type: 2}
   minDistance: 5
   maxDistance: 24
   preparationTime: 1.25

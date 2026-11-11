@@ -31,6 +31,14 @@ public class HPSystem : MonoBehaviour, IDamageable
         isInvulnerable = value;
     }
 
+    public void MultiplyMaxHealth(float multiplier)
+    {
+        float ratio = maxHealth > 0f ? CurrentHealth / maxHealth : 1f;
+        maxHealth = Mathf.Max(1f, maxHealth * Mathf.Max(0.1f, multiplier));
+        CurrentHealth = maxHealth * ratio;
+        RefreshHealthUI();
+    }
+
     private void Awake()
     {
         CurrentHealth = maxHealth;

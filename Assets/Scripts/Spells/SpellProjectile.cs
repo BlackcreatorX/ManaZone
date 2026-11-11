@@ -16,6 +16,7 @@ public class SpellProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProje
     private Rigidbody rb;
     private Transform ignoredOwner;
     public Transform OwnerRoot => ignoredOwner;
+    public float Damage => damage;
 
     private void Awake()
     {

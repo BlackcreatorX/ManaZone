@@ -32,7 +32,11 @@ public sealed class ProjectileSpellDefinition : SpellDefinition
 
         CCProjectile controlProjectile = projectile.GetComponent<CCProjectile>();
         if (controlProjectile != null)
-            controlProjectile.SetStunEffect(stunDuration, flipTargetDuringStun);
+            controlProjectile.SetStunEffect(stunDuration * context.Caster.ControlDurationMultiplier, flipTargetDuringStun);
+
+        SpellProjectile damageProjectile = projectile.GetComponent<SpellProjectile>();
+        if (damageProjectile != null)
+            damageProjectile.SetDamage(damageProjectile.Damage * context.Caster.DamageMultiplier);
 
         if (launchable is IOwnedSpellProjectile ownedProjectile)
             ownedProjectile.SetOwner(context.Owner);

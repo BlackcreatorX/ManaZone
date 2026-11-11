@@ -691,7 +691,7 @@
     },
     "m_PreviewData": {
         "serializedMesh": {
-            "m_SerializedMesh": "{\"mesh\":{\"instanceID\":0}}",
+            "m_SerializedMesh": "{\"mesh\":{\"fileID\":10210,\"guid\":\"0000000000000000e000000000000000\",\"type\":0}}",
             "m_Guid": ""
         },
         "preventRotation": false
@@ -1026,7 +1026,7 @@
     "m_Title": "Rotate",
     "m_Position": {
         "x": -1204.0,
-        "y": -125.99981689453125
+        "y": -126.00001525878906
     }
 }
 
@@ -3226,7 +3226,7 @@
     "m_Title": "ripple",
     "m_Position": {
         "x": -1213.0,
-        "y": -854.0
+        "y": -854.0000610351563
     }
 }
 
