@@ -3,25 +3,37 @@ using UnityEngine;
 
 public class ParryEffect : MonoBehaviour
 {
-    [Header("Parry Settings")]
-    [SerializeField] private float defaultWindow = 0.2f;
+    [Header("Visual")]
+    [SerializeField] private Transform heart;
+    [SerializeField, Min(0f)] private float heartStartScale = 0.1f;
+    [SerializeField, Min(0f)] private float heartGrowDuration = 0.2f;
+    [SerializeField, Min(0f)] private float heartAbsorbScale = 0.12f;
+    [SerializeField, Min(0.01f)] private float heartAbsorbDuration = 0.22f;
 
     private float remainingTime;
     private bool isActive;
     private bool hasResolved;
+    private bool hasParried;
     private ManaSystem manaSystem;
     private float manaRecovery;
     private HPSystem protectedPlayer;
-
-    private IParryResponse response;
-
-    private void Awake()
-    {
-        response = GetComponent<IParryResponse>();
-    }
+    private Vector3 heartTargetScale;
+    private float heartGrowElapsed;
+    private float heartAbsorbElapsed;
 
     public void Activate(float duration, ManaSystem manaSystem, float manaRecovery)
     {
+        if (heart == null)
+            heart = transform.Find("Heart");
+
+        if (heart != null)
+        {
+            heartTargetScale = heart.localScale;
+            heart.localScale = heartTargetScale * heartStartScale;
+            heartGrowElapsed = 0f;
+            heartAbsorbElapsed = heartAbsorbDuration;
+        }
+
         remainingTime = duration;
         this.manaSystem = manaSystem;
         this.manaRecovery = manaRecovery;
@@ -30,11 +42,12 @@ public class ParryEffect : MonoBehaviour
             protectedPlayer.SetInvulnerable(true);
         isActive = true;
         hasResolved = false;
+        hasParried = false;
     }
 
     public bool TryParry(SpellProjectile projectile)
     {
-        if (!CanParry())
+        if (!CanParry() || IsOwnedByParrier(projectile))
             return false;
 
         projectile.Reflect(transform.root);
@@ -44,7 +57,7 @@ public class ParryEffect : MonoBehaviour
 
     public bool TryParry(CCProjectile projectile)
     {
-        if (!CanParry())
+        if (!CanParry() || IsOwnedByParrier(projectile))
             return false;
 
         projectile.Reflect(transform.root);
@@ -54,6 +67,8 @@ public class ParryEffect : MonoBehaviour
 
     private void Update()
     {
+        AnimateHeartEntry();
+
         if (!isActive || hasResolved)
             return;
 
@@ -61,8 +76,31 @@ public class ParryEffect : MonoBehaviour
 
         if (remainingTime <= 0f)
         {
-            ResolveParry(ParryResult.NotParried);
+            ResolveParry(hasParried ? ParryResult.Parried : ParryResult.NotParried);
         }
+    }
+
+    private void AnimateHeartEntry()
+    {
+        if (heart == null)
+            return;
+
+        if (heartGrowElapsed < heartGrowDuration)
+            heartGrowElapsed += Time.deltaTime;
+
+        float entryProgress = heartGrowDuration > 0f
+            ? Mathf.Clamp01(heartGrowElapsed / heartGrowDuration)
+            : 1f;
+        Vector3 entryScale = Vector3.Lerp(heartTargetScale * heartStartScale, heartTargetScale, entryProgress);
+
+        if (heartAbsorbElapsed < heartAbsorbDuration)
+            heartAbsorbElapsed = Mathf.Min(heartAbsorbElapsed + Time.deltaTime, heartAbsorbDuration);
+
+        float absorbProgress = heartAbsorbDuration > 0f
+            ? Mathf.Clamp01(heartAbsorbElapsed / heartAbsorbDuration)
+            : 1f;
+        float pulse = Mathf.Sin(absorbProgress * Mathf.PI);
+        heart.localScale = entryScale * (1f + heartAbsorbScale * pulse);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -89,13 +127,19 @@ public class ParryEffect : MonoBehaviour
         return isActive && !hasResolved;
     }
 
+    private bool IsOwnedByParrier(IOwnedSpellProjectile projectile)
+    {
+        return projectile != null && projectile.OwnerRoot == transform.root;
+    }
+
     private void CompleteSuccessfulParry()
     {
+        hasParried = true;
+        heartAbsorbElapsed = 0f;
         if (manaSystem != null)
             manaSystem.RestoreMana(manaRecovery);
 
         Debug.Log($"Parried. Se recuperaron {manaRecovery:F1} de maná y el proyectil fue devuelto.");
-        ResolveParry(ParryResult.Parried);
     }
 
     private void ResolveParry(ParryResult result)
@@ -110,8 +154,6 @@ public class ParryEffect : MonoBehaviour
             protectedPlayer.SetInvulnerable(false);
 
         Debug.Log("Resultado del parry: " + result);
-
-        response?.OnParryResult(result);
 
         Destroy(gameObject);
     }

@@ -1,16 +1,40 @@
 
 using UnityEngine;
 
-public class CCProjectile : MonoBehaviour
+public class CCProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProjectile
 {
     [Header("Projectile Settings")]
     [SerializeField] private float speed = 20f;
     [SerializeField] private float lifeTime = 5f;
+    [SerializeField, Min(0f)] private float stunDuration = 1.2f;
+    [SerializeField] private bool flipTargetDuringStun = true;
 
     private Vector3 direction;
     private bool hasHit;
     private bool isLaunched;
     private Transform ignoredOwner;
+    public Transform OwnerRoot => ignoredOwner;
+
+    public void SetStunDuration(float duration)
+    {
+        stunDuration = Mathf.Max(0f, duration);
+    }
+
+    public void SetStunEffect(float duration, bool flipVisual)
+    {
+        SetStunDuration(duration);
+        flipTargetDuringStun = flipVisual;
+    }
+
+    public void SetOwner(Transform owner)
+    {
+        ignoredOwner = owner != null ? owner.root : null;
+    }
+
+    public bool IsOwnedBy(Transform owner)
+    {
+        return owner != null && ignoredOwner == owner.root;
+    }
 
     public void Launch(Vector3 launchDirection)
     {
@@ -48,6 +72,13 @@ public class CCProjectile : MonoBehaviour
         if (hasHit)
             return;
 
+        if (other.gameObject.layer == LayerMask.NameToLayer("muro"))
+        {
+            hasHit = true;
+            Destroy(gameObject);
+            return;
+        }
+
         if (ignoredOwner != null && other.transform.root == ignoredOwner)
             return;
 
@@ -63,31 +94,20 @@ public class CCProjectile : MonoBehaviour
             return;
         }
 
-        MonoBehaviour[] components =
-            other.GetComponentsInParent<MonoBehaviour>();
+        // Offensive spells do not cancel one another on contact.
+        if (other.GetComponentInParent<SpellProjectile>() != null
+            || other.GetComponentInParent<CCProjectile>() != null)
+            return;
 
-        foreach (MonoBehaviour component in components)
+        IStunnable target = other.GetComponentInParent<IStunnable>();
+        if (target != null)
         {
-            if (component == null)
-                continue;
-
-            if (component is IStunnable target)
-            {
-                hasHit = true;
+            hasHit = true;
+            if (target is ITimedStunnable timedTarget)
+                timedTarget.Stun(stunDuration, flipTargetDuringStun);
+            else
                 target.Stun();
-
-                Debug.Log(
-                    $"¡{other.name} recibió el hechizo de control!"
-                );
-
-                Destroy(gameObject);
-                return;
-            }
+            Destroy(gameObject);
         }
     }
-}
-
-public interface IStunnable
-{
-    void Stun();
 }

@@ -2,7 +2,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class SpellProjectile : MonoBehaviour
+public class SpellProjectile : MonoBehaviour, ILaunchableSpell, IOwnedSpellProjectile
 {
     [Header("Projectile")]
     [SerializeField] private float speed = 20f;
@@ -15,6 +15,7 @@ public class SpellProjectile : MonoBehaviour
 
     private Rigidbody rb;
     private Transform ignoredOwner;
+    public Transform OwnerRoot => ignoredOwner;
 
     private void Awake()
     {
@@ -30,6 +31,21 @@ public class SpellProjectile : MonoBehaviour
         Destroy(gameObject, lifetime);
     }
 
+    public void SetOwner(Transform owner)
+    {
+        ignoredOwner = owner != null ? owner.root : null;
+    }
+
+    public bool IsOwnedBy(Transform owner)
+    {
+        return owner != null && ignoredOwner == owner.root;
+    }
+
+    public void SetDamage(float value)
+    {
+        damage = Mathf.Max(0f, value);
+    }
+
     public void Reflect(Transform newOwner)
     {
         ignoredOwner = newOwner != null ? newOwner.root : null;
@@ -43,6 +59,12 @@ public class SpellProjectile : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        if (other.gameObject.layer == LayerMask.NameToLayer("muro"))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (ignoredOwner != null && other.transform.root == ignoredOwner)
             return;
 
@@ -57,20 +79,22 @@ public class SpellProjectile : MonoBehaviour
             return;
         }
 
-        SpellableTarget target =
-            other.GetComponentInParent<SpellableTarget>();
-        HPSystem health = other.GetComponentInParent<HPSystem>();
+        // Offensive projectiles pass through other spells. Shield and parry are
+        // resolved above as explicit defensive effects.
+        if (other.GetComponentInParent<SpellProjectile>() != null
+            || other.GetComponentInParent<CCProjectile>() != null)
+            return;
 
+        IDamageable target = other.GetComponentInParent<IDamageable>();
         if (target != null)
         {
             target.TakeDamage(damage);
 
             if (appliesSlow)
-                target.ApplySlow(slowDuration);
-        }
-        else if (health != null)
-        {
-            health.TakeDamage(damage);
+            {
+                ISlowable slowable = other.GetComponentInParent<ISlowable>();
+                slowable?.ApplySlow(slowDuration);
+            }
         }
 
         // El proyectil desaparece al impactar.

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6efaa99f8ce51ea419b0cae46b937679, type: 3}
+  m_Name: Hostigamiento_Prueba
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAIPattern
+  patternId: harass_bolt
+  kind: 0
+  actions:
+  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  - {fileID: 11400000, guid: 6d40d3ea360a4fd19aef2e6b5d0c4310, type: 2}
+  minDistance: 0
+  maxDistance: 18
+  preparationTime: 0.15
+  pauseBetweenActions: 0.2
+  recoveryTime: 0.1
+  selectionWeight: 1.4
+  lowPlayerHealthBonus: 0
