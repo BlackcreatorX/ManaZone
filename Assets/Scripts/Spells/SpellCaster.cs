@@ -308,6 +308,19 @@ public class SpellCaster : MonoBehaviour
         activeChargeVisual = null;
     }
 
+    /// <summary>Displays the assigned charge circle for an AI-controlled charged spell.</summary>
+    public void BeginAIChargeVisual(SpellDefinition spell)
+    {
+        if (spell is ChargedSpellDefinition)
+            ShowChargeVisual(spell);
+    }
+
+    /// <summary>Hides the AI charge circle when its attack ends or is interrupted.</summary>
+    public void EndAIChargeVisual()
+    {
+        HideChargeVisual();
+    }
+
     /// <summary>Shared casting entry point for players and AI. Input remains owned by this component.</summary>
     public bool TryCastSpell(SpellDefinition spell, float charge01 = 1f)
     {

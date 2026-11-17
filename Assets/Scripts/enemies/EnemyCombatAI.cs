@@ -31,6 +31,12 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     private CharacterController controller;
     private static readonly int AnimationX = Animator.StringToHash("x");
     private static readonly int AnimationY = Animator.StringToHash("y");
+    private static readonly int StartChargeTrigger = Animator.StringToHash("SignalStartCharge");
+    private static readonly int ReleaseChargeTrigger = Animator.StringToHash("SignalRealesedCharge");
+    private static readonly int BasicAttackATrigger = Animator.StringToHash("SignalBasicA");
+    private static readonly int BasicAttackBTrigger = Animator.StringToHash("SignalBasicB");
+    private static readonly int ParryTrigger = Animator.StringToHash("signalParry");
+    private static readonly int StunTrigger = Animator.StringToHash("SignalStun");
     private float animationX, animationY;
     private bool hasAnimationX, hasAnimationY;
     private bool animationParametersChecked;
@@ -44,6 +50,7 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     private bool observedPlayerAttack;
     private float counterObservationRemaining;
     private bool continuePatternAfterPause;
+    private bool nextBasicAttackIsB;
     private string selectionReason = "Waiting";
     private StunFlipEffect stunFlipEffect;
 
@@ -92,7 +99,13 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         {
             stunTimer -= Time.deltaTime;
             SetState(EnemyAIState.Stunned);
-            if (stunTimer <= 0f) { selectedPattern = null; SetState(EnemyAIState.EvaluateCombat); }
+            if (stunTimer <= 0f)
+            {
+                selectedPattern = null;
+                continuePatternAfterPause = false;
+                decisionTimer = EffectiveReactionTime;
+                SetState(EnemyAIState.Idle);
+            }
             UpdateAnimation();
             return;
         }
@@ -158,6 +171,12 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
             MoveDuringCombat();
 
         UpdateAnimation();
+    }
+
+    private void OnDisable()
+    {
+        if (spellCaster != null)
+            spellCaster.EndAIChargeVisual();
     }
 
     public static void NotifyPlayerSpellCast(Transform attacker)
@@ -306,7 +325,10 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
             : "Weighted by valid pattern, personality preference, and aggression";
         bool isParry = best.Actions[0] is DefensiveSpellDefinition defensiveSpell
             && defensiveSpell.Mode == DefensiveMode.Parry;
-        stateTimer = best.PreparationTime + (isParry ? 0f : EffectiveReactionTime);
+        ChargedSpellDefinition chargedSpell = best.Actions[0] as ChargedSpellDefinition;
+        stateTimer = chargedSpell != null
+            ? chargedSpell.ChargeDuration
+            : best.PreparationTime + (isParry ? 0f : EffectiveReactionTime);
         SetState(best.Actions[0] is DefensiveSpellDefinition ? EnemyAIState.Defend : EnemyAIState.PrepareAttack);
     }
 
@@ -321,7 +343,10 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
             actionIndex++;
             continuePatternAfterPause = actionIndex < selectedPattern.Actions.Length;
             if (!continuePatternAfterPause) RegisterCompletedPattern();
-            stateTimer = continuePatternAfterPause ? selectedPattern.PauseBetweenActions : selectedPattern.RecoveryTime;
+            SpellDefinition nextAction = continuePatternAfterPause ? selectedPattern.Actions[actionIndex] : null;
+            stateTimer = nextAction is ChargedSpellDefinition nextChargedSpell
+                ? nextChargedSpell.ChargeDuration
+                : continuePatternAfterPause ? selectedPattern.PauseBetweenActions : selectedPattern.RecoveryTime;
             SetState(EnemyAIState.Recover);
             return;
         }
@@ -333,6 +358,19 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
             stateTimer = 0.5f;
             return;
         }
+        if (action is ChargedSpellDefinition)
+        {
+            TriggerAnimation(ReleaseChargeTrigger);
+            spellCaster.EndAIChargeVisual();
+        }
+        else if (action is StunOnlySpellDefinition
+            || (action is ProjectileSpellDefinition stunProjectile && stunProjectile.IsStunAttack))
+            TriggerAnimation(StunTrigger);
+        else if (!(action is DefensiveSpellDefinition))
+        {
+            TriggerAnimation(nextBasicAttackIsB ? BasicAttackBTrigger : BasicAttackATrigger);
+            nextBasicAttackIsB = !nextBasicAttackIsB;
+        }
         actionIndex++;
         if (actionIndex >= selectedPattern.Actions.Length)
         {
@@ -342,8 +380,11 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         }
         else
         {
-            // The inter-action pause is handled as a short recovery before the next action.
-            stateTimer = selectedPattern.PauseBetweenActions;
+            // Charge the next spell during recovery when it is a charged action.
+            SpellDefinition nextAction = selectedPattern.Actions[actionIndex];
+            stateTimer = nextAction is ChargedSpellDefinition nextChargedSpell
+                ? nextChargedSpell.ChargeDuration
+                : selectedPattern.PauseBetweenActions;
             continuePatternAfterPause = true;
             SetState(EnemyAIState.Recover);
         }
@@ -514,6 +555,24 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
         animationY = 0f;
     }
 
+    private void TriggerAnimation(int triggerHash)
+    {
+        if (animator == null)
+            FindAnimator();
+        if (animator == null || !animator.isActiveAndEnabled || animator.runtimeAnimatorController == null)
+            return;
+
+        AnimatorControllerParameter[] parameters = animator.parameters;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].nameHash != triggerHash || parameters[i].type != AnimatorControllerParameterType.Trigger)
+                continue;
+
+            animator.SetTrigger(triggerHash);
+            return;
+        }
+    }
+
     private void FindAnimator()
     {
         if (animator != null)
@@ -569,6 +628,33 @@ public sealed class EnemyCombatAI : MonoBehaviour, ITimedStunnable
     {
         if (state == newState) return;
         state = newState;
+        bool isCurrentActionCharged = selectedPattern != null
+            && selectedPattern.Actions != null
+            && actionIndex < selectedPattern.Actions.Length
+            && selectedPattern.Actions[actionIndex] is ChargedSpellDefinition;
+        bool waitingForChargedAction = (newState == EnemyAIState.PrepareAttack
+                || (newState == EnemyAIState.Recover && continuePatternAfterPause)
+                || newState == EnemyAIState.Attack)
+            && isCurrentActionCharged;
+        if (waitingForChargedAction && selectedPattern != null
+            && selectedPattern.Actions != null && actionIndex < selectedPattern.Actions.Length)
+            spellCaster?.BeginAIChargeVisual(selectedPattern.Actions[actionIndex]);
+        else
+            spellCaster?.EndAIChargeVisual();
+        if ((newState == EnemyAIState.PrepareAttack
+                || (newState == EnemyAIState.Recover && continuePatternAfterPause))
+            && selectedPattern != null
+            && selectedPattern.Actions != null
+            && actionIndex < selectedPattern.Actions.Length
+            && selectedPattern.Actions[actionIndex] is ChargedSpellDefinition)
+            TriggerAnimation(StartChargeTrigger);
+        else if (newState == EnemyAIState.Defend
+            && selectedPattern != null
+            && selectedPattern.Actions != null
+            && actionIndex < selectedPattern.Actions.Length
+            && selectedPattern.Actions[actionIndex] is DefensiveSpellDefinition defensiveSpell
+            && defensiveSpell.Mode == DefensiveMode.Parry)
+            TriggerAnimation(ParryTrigger);
         if (debugState) Debug.Log($"{name} AI: {state} | {CurrentPattern} | {CurrentAction} | mana {spellCaster?.CurrentMana:F0} | {selectionReason}", this);
     }
 
