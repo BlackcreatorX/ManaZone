@@ -8472,6 +8472,8 @@ MonoBehaviour:
   moveSpeed: 5
   gravity: -20
   stunDuration: 1.5
+  animationDampTime: 0.3
+  basicComboWindow: 0.85
   inputActions: {fileID: -944628639613478452, guid: 7fc04a5933599ef44a2480d5820a2605, type: 3}
 --- !u!114 &4654731442588307012
 MonoBehaviour:
@@ -8496,6 +8498,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 871eb080369c4a8d82c63d2976e8392b, type: 2}
   - {fileID: 11400000, guid: 41d7d926a6e44b4ea1744caa99b15d1a, type: 2}
   spellSelectionText: {fileID: 0}
+  spellVisuals:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  visualStartScale: 0.1
+  visualGrowDuration: 0.3
+  visualVisibleDuration: 2
 --- !u!114 &7976800596068758909
 MonoBehaviour:
   m_ObjectHideFlags: 0
