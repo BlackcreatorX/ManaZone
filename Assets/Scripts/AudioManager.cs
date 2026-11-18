@@ -13,12 +13,21 @@ public sealed class AudioManager : MonoBehaviour
 
     [Header("Audio clips")]
     [SerializeField] private AudioClip musicClip;
+    [SerializeField] private AudioClip menuMusicClip;
+    [SerializeField] private AudioClip tutorialMusicClip;
+    [SerializeField] private AudioClip fightMusicClip;
+    [SerializeField] private string menuSceneName = "MenuScene";
+    [SerializeField] private string tutorialSceneName = "SampleScene";
+    [SerializeField] private string[] fightSceneNames = { "Fight1", "Level1" };
     [SerializeField] private SoundEffect[] soundEffects;
 
     private static AudioManager instance;
 
     private AudioSource musicSource;
     private AudioSource sfxSource;
+    private float musicVolume = 1f;
+    private float sfxVolume = 1f;
+    private float currentMusicMultiplier = 1f;
 
     public static AudioManager Instance
     {
@@ -63,14 +72,19 @@ public sealed class AudioManager : MonoBehaviour
         EnsureSingleAudioListener();
         SceneManager.sceneLoaded += OnSceneLoaded;
 
+        musicVolume = PlayerPrefs.GetFloat("ManaZone.MusicVolume", 1f);
+        sfxVolume = PlayerPrefs.GetFloat("ManaZone.SfxVolume", 1f);
+
         musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = true;
         musicSource.playOnAwake = false;
+        musicSource.volume = musicVolume;
 
         sfxSource = gameObject.AddComponent<AudioSource>();
         sfxSource.playOnAwake = false;
+        sfxSource.volume = sfxVolume;
 
-        PlayMusic(musicClip);
+        PlayMusicForScene(SceneManager.GetActiveScene());
     }
 
     private void OnDestroy()
@@ -85,6 +99,31 @@ public sealed class AudioManager : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         EnsureSingleAudioListener();
+        PlayMusicForScene(scene);
+    }
+
+    private void PlayMusicForScene(Scene scene)
+    {
+        AudioClip sceneMusic = null;
+        if (string.Equals(scene.name, menuSceneName, System.StringComparison.OrdinalIgnoreCase))
+            sceneMusic = menuMusicClip;
+        else if (string.Equals(scene.name, tutorialSceneName, System.StringComparison.OrdinalIgnoreCase))
+            sceneMusic = tutorialMusicClip;
+        else if (ContainsSceneName(fightSceneNames, scene.name))
+            sceneMusic = fightMusicClip;
+
+        PlayMusic(sceneMusic != null ? sceneMusic : musicClip);
+    }
+
+    private static bool ContainsSceneName(string[] sceneNames, string sceneName)
+    {
+        if (sceneNames == null) return false;
+        foreach (string candidate in sceneNames)
+        {
+            if (string.Equals(candidate, sceneName, System.StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     private void EnsureSingleAudioListener()
@@ -154,7 +193,8 @@ public sealed class AudioManager : MonoBehaviour
             return;
 
         musicSource.clip = clip;
-        musicSource.volume = Mathf.Clamp01(volume);
+        currentMusicMultiplier = Mathf.Clamp01(volume);
+        musicSource.volume = musicVolume * currentMusicMultiplier;
         musicSource.Play();
     }
 
@@ -169,13 +209,19 @@ public sealed class AudioManager : MonoBehaviour
 
     public void SetMusicVolume(float volume)
     {
+        musicVolume = Mathf.Clamp01(volume);
         if (musicSource != null)
-            musicSource.volume = Mathf.Clamp01(volume);
+            musicSource.volume = musicVolume * currentMusicMultiplier;
+
+        PlayerPrefs.SetFloat("ManaZone.MusicVolume", musicVolume);
     }
 
     public void SetSfxVolume(float volume)
     {
+        sfxVolume = Mathf.Clamp01(volume);
         if (sfxSource != null)
-            sfxSource.volume = Mathf.Clamp01(volume);
+            sfxSource.volume = sfxVolume;
+
+        PlayerPrefs.SetFloat("ManaZone.SfxVolume", sfxVolume);
     }
 }

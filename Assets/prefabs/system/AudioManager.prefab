@@ -45,6 +45,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
   musicClip: {fileID: 8300000, guid: 8ec64c8b66c3f054f87ebc8233e51e00, type: 3}
+  menuMusicClip: {fileID: 0}
+  tutorialMusicClip: {fileID: 0}
+  fightMusicClip: {fileID: 0}
+  menuSceneName: MenuScene
+  tutorialSceneName: SampleScene
+  fightSceneNames:
+  - Fight1
+  - Level1
   soundEffects:
   - id: BasicAttack
     clip: {fileID: 8300000, guid: 138c54cd5433f154cb74aac9c1e74482, type: 3}

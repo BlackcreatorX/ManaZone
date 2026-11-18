@@ -41,6 +41,7 @@ public class SpellableTarget : MonoBehaviour, IDamageable, ITimedStunnable, ISlo
 
         if (currentHealth <= 0f)
         {
+            FightResultsUI.ReportEnemyDefeated(gameObject.GetInstanceID());
             Destroy(gameObject);
         }
         if (healthBar != null && maxHealth > 0f)

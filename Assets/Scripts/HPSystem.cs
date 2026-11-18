@@ -56,6 +56,16 @@ public class HPSystem : MonoBehaviour, IDamageable
 
         if (CurrentHealth <= 0f)
         {
+            bool isPlayer = GetComponentInParent<TPSController>() != null;
+            EnemyCombatAI enemyAI = GetComponentInParent<EnemyCombatAI>();
+            SpellableTarget spellableTarget = GetComponentInParent<SpellableTarget>();
+            GameObject enemyRoot = enemyAI != null
+                ? enemyAI.gameObject
+                : spellableTarget != null ? spellableTarget.gameObject : gameObject;
+
+            // In a fight, a non-player HPSystem belongs to an opponent. Pass the
+            // opponent GameObject ID, which is the same ID used by the tracker.
+            FightResultsUI.ReportDeath(isPlayer, !isPlayer, enemyRoot.GetInstanceID());
             Destroy(gameObject);
         }
         RefreshHealthUI();

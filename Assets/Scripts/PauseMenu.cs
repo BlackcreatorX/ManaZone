@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -6,28 +5,21 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/// <summary>Builds a pause menu at runtime and keeps it available across scenes.</summary>
+/// <summary>Controls the pause menu authored in the scene hierarchy.</summary>
 public sealed class PauseMenu : MonoBehaviour
 {
+    [Header("Menu references")]
+    [SerializeField] private GameObject menuRoot;
+    [SerializeField] private Button resumeButton;
+    [SerializeField] private Button restartButton;
+    [SerializeField] private Button mainMenuButton;
+    [SerializeField] private Button quitButton;
     [SerializeField] private string mainMenuScene = "MenuScene";
 
     private static PauseMenu instance;
-
-    private GameObject menuRoot;
     private bool isPaused;
     private CursorLockMode previousLockMode;
     private bool previousCursorVisibility;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void CreateAtStartup()
-    {
-        if (instance == null)
-        {
-            instance = FindFirstObjectByType<PauseMenu>();
-            if (instance == null)
-                instance = new GameObject("PauseMenu").AddComponent<PauseMenu>();
-        }
-    }
 
     private void Awake()
     {
@@ -40,12 +32,28 @@ public sealed class PauseMenu : MonoBehaviour
         instance = this;
         DontDestroyOnLoad(gameObject);
         EnsureEventSystem();
-        BuildMenu();
+
+        if (menuRoot == null)
+        {
+            Debug.LogError("PauseMenu necesita la referencia Menu Root asignada desde la jerarquía.", this);
+            enabled = false;
+            return;
+        }
+
+        menuRoot.SetActive(false);
+        if (resumeButton != null) resumeButton.onClick.AddListener(Resume);
+        if (restartButton != null) restartButton.onClick.AddListener(Restart);
+        if (mainMenuButton != null) mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        if (quitButton != null) quitButton.onClick.AddListener(Application.Quit);
+
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void Update()
     {
+        if (FightResultsUI.IsShowingResult)
+            return;
+
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame)
             return;
 
@@ -86,6 +94,9 @@ public sealed class PauseMenu : MonoBehaviour
 
     private void Pause()
     {
+        if (menuRoot == null)
+            return;
+
         isPaused = true;
         Time.timeScale = 0f;
         previousLockMode = Cursor.lockState;
@@ -99,7 +110,8 @@ public sealed class PauseMenu : MonoBehaviour
     {
         isPaused = false;
         Time.timeScale = 1f;
-        menuRoot.SetActive(false);
+        if (menuRoot != null)
+            menuRoot.SetActive(false);
         Cursor.lockState = previousLockMode;
         Cursor.visible = previousCursorVisibility;
     }
@@ -110,6 +122,7 @@ public sealed class PauseMenu : MonoBehaviour
         isPaused = false;
         Cursor.lockState = previousLockMode;
         Cursor.visible = previousCursorVisibility;
+
         Scene activeScene = SceneManager.GetActiveScene();
 #if UNITY_EDITOR
         if (activeScene.buildIndex < 0)
@@ -149,105 +162,5 @@ public sealed class PauseMenu : MonoBehaviour
             inputModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
             inputModule.AssignDefaultActions();
         }
-    }
-
-    private void BuildMenu()
-    {
-        GameObject canvasObject = new GameObject("Pause Menu Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        canvasObject.transform.SetParent(transform, false);
-
-        Canvas canvas = canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 100;
-
-        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
-
-        menuRoot = CreateRect("Pause Menu", canvasObject.transform);
-        Stretch(menuRoot.GetComponent<RectTransform>());
-
-        Image backdrop = menuRoot.AddComponent<Image>();
-        backdrop.color = new Color(0f, 0f, 0f, 0.72f);
-
-        GameObject panel = CreateRect("Panel", menuRoot.transform);
-        RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(560f, 580f);
-
-        Image panelImage = panel.AddComponent<Image>();
-        panelImage.color = new Color(0.075f, 0.085f, 0.13f, 0.98f);
-
-        CreateLabel("PAUSA", panel.transform, new Vector2(0f, 205f), 38f, FontStyles.Bold);
-        CreateButton("Reanudar", panel.transform, new Vector2(0f, 100f), Resume);
-        CreateButton("Reiniciar", panel.transform, new Vector2(0f, 10f), Restart);
-        CreateButton("Menú principal", panel.transform, new Vector2(0f, -80f), ReturnToMainMenu);
-        CreateButton("Salir", panel.transform, new Vector2(0f, -170f), Application.Quit);
-
-        menuRoot.SetActive(false);
-    }
-
-    private static GameObject CreateRect(string objectName, Transform parent)
-    {
-        GameObject child = new GameObject(objectName, typeof(RectTransform));
-        child.transform.SetParent(parent, false);
-        return child;
-    }
-
-    private static void Stretch(RectTransform rect)
-    {
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-    }
-
-    private static void CreateLabel(string text, Transform parent, Vector2 position, float fontSize, FontStyles fontStyle)
-    {
-        GameObject label = CreateRect(text, parent);
-        RectTransform rect = label.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(440f, 72f);
-
-        TextMeshProUGUI tmp = label.AddComponent<TextMeshProUGUI>();
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.fontStyle = fontStyle;
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
-        if (TMP_Settings.defaultFontAsset != null)
-            tmp.font = TMP_Settings.defaultFontAsset;
-    }
-
-    private static void CreateButton(string label, Transform parent, Vector2 position, UnityEngine.Events.UnityAction action)
-    {
-        GameObject buttonObject = CreateRect(label + " Button", parent);
-        RectTransform rect = buttonObject.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(340f, 64f);
-
-        Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.2f, 0.25f, 0.38f, 1f);
-
-        Button button = buttonObject.AddComponent<Button>();
-        button.targetGraphic = image;
-        button.onClick.AddListener(action);
-
-        GameObject textObject = CreateRect("Label", buttonObject.transform);
-        RectTransform textRect = textObject.GetComponent<RectTransform>();
-        Stretch(textRect);
-
-        TextMeshProUGUI tmp = textObject.AddComponent<TextMeshProUGUI>();
-        tmp.text = label;
-        tmp.fontSize = 27f;
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
-        if (TMP_Settings.defaultFontAsset != null)
-            tmp.font = TMP_Settings.defaultFontAsset;
     }
 }
