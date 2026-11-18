@@ -16,7 +16,7 @@ MonoBehaviour:
   cooldown: 0
   manaCost: 10
   chargeDuration: 5
-  projectilePrefab: {fileID: 1643262983094957903, guid: 6f603cf5fafc1744f82dac6800fe49dc, type: 3}
+  projectilePrefab: {fileID: 9041305891959538010, guid: e60d7d8b08fdc3e44a1867757b8dfdce, type: 3}
   minimumProjectiles: 3
   maximumProjectiles: 8
   intervalBetweenProjectiles: 0.12

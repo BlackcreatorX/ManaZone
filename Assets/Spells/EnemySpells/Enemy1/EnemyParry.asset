@@ -6,6 +6,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a12cc573a7374b898b2bb7875118d591, type: 3}
@@ -16,7 +17,7 @@ MonoBehaviour:
   manaCost: 8
   mode: 1
   shieldPrefab: {fileID: 1657132354178111425, guid: 1a5c44512e5e4f044a829ef0284c749e, type: 3}
-  parryPrefab: {fileID: 1657132354178111425, guid: 08d48455ec28abc4ab2ba5ad3446c792, type: 3}
+  parryPrefab: {fileID: 8332089113508735786, guid: b4a8d76e2a5929e4b8984b19dab4879f, type: 3}
   parryDisplayName: Parry
   parryWindow: 0.65
   manaDrainPerSecond: 0
